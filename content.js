@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.5.2. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.5.3. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -147,6 +147,11 @@
         <button class="mini" type="button" id="delta-ieee-import-run">Importar e exportar no formato escolhido</button>
         <div class="status" id="delta-ieee-import-status" role="status" aria-live="polite"></div>
       </div>
+      <div id="delta-capes-action" class="delta-ieee-action" hidden>
+        <input id="delta-capes-file" type="file" accept=".ris,.bib,.bibtex,text/plain" hidden aria-label="Selecionar RIS ou BibTeX exportado pelo Portal CAPES" />
+        <button class="mini" type="button" id="delta-capes-import-run">Importar RIS/BibTeX da CAPES</button>
+        <div class="status" id="delta-capes-import-status" role="status" aria-live="polite"></div>
+      </div>
       <div class="special" id="delta-strategy">
         <strong style="font-size:12px">Estratégia da busca</strong>
         <div class="status" id="delta-query-preview"></div><div class="status" id="delta-filter-preview"></div>
@@ -217,6 +222,8 @@
     const pageParam = Number(pageUrl.searchParams.get("pageNumber") || pageUrl.searchParams.get("page"));
     const pageNum = Number.isSafeInteger(pageParam) && pageParam > 0 ? pageParam : null;
     pageInfo.textContent = (pageNum ? "Página " + pageNum : "Página atual") + " · até " + pageSize + " registros visíveis · coleta parcial";
+  } else if (provider === "capes") {
+    pageInfo.textContent = "Portal CAPES · importação de arquivo bibliográfico oficial · sem coleta automática da página";
   } else if (provider === "arxiv") {
     const pageSize = Math.max(10,Math.min(200,Number(pageUrl.searchParams.get("size")) || 50));
     const offset = Math.max(0,Number(pageUrl.searchParams.get("start")) || 0);
@@ -224,7 +231,7 @@
   } else {
     pageInfo.textContent = "Fonte: " + provider.toUpperCase() + " · consulte as condições de coleta abaixo";
   }
-  main.append(kicker,$("query-preview"),$("filter-preview"),pageInfo,baseFields,$("coverage-options"),$("local-label"),actionRow,$("ieee-action"),$("progress"),$("status"),$("note"));
+  main.append(kicker,$("query-preview"),$("filter-preview"),pageInfo,baseFields,$("coverage-options"),$("local-label"),actionRow,$("ieee-action"),$("capes-action"),$("progress"),$("status"),$("note"));
   const library = $("library");
   const clearRow = $("clear").parentElement;
   library.append(makeFold("Gerenciar dados locais","Exclusão de dados",clearRow,"delta-danger"));
@@ -242,6 +249,7 @@
 
 
   const providers = {
+    capes: ["Portal CAPES (experimental)", "Exporte RIS ou BibTeX na busca do Portal CAPES e importe o arquivo aqui. Não há coleta automática nem acesso às credenciais CAFe. Confira a cobertura e preserve o arquivo original."],
     ieee: ["IEEE Xplore", "A coleta direta recupera apenas os resultados visíveis nesta página (geralmente até 25). Para um conjunto maior, exporte CSV pelo IEEE e use o botão de importação acima."],
     arxiv: ["arXiv", "A coleta pode percorrer várias páginas até o limite configurado. A correspondência da busca deve ser conferida; até 20 PDFs opcionais."],
     europepmc: ["Europe PMC", "API oficial. Metadados, resumos e links abertos quando disponíveis."],
@@ -263,6 +271,12 @@
   $("pdf-label").hidden = provider !== "arxiv";
   $("doaj-options").hidden = provider !== 'doaj';
   $("ieee-action").hidden = provider !== "ieee";
+  $("capes-action").hidden = provider !== "capes";
+  if(provider==="capes"){
+    $("one-click").innerHTML='<span aria-hidden="true">↓</span> Importar CAPES';
+    $("one-click").title="Importar RIS/BibTeX exportado pelo Portal CAPES";
+    $("start").textContent="Importar arquivo CAPES";
+  }
   if(provider==="ieee"){$("one-click").innerHTML='<span aria-hidden="true">↓</span> Coletar página';$("one-click").title="IEEE: coleta somente a página atual (normalmente 25). Para a busca inteira use Export Results → CSV.";}
   $("preprint-options").hidden = !['biorxiv','medrxiv'].includes(provider);
   const today = new Date();
@@ -287,8 +301,8 @@
     $("start").disabled = busy;
     $("one-click").disabled = busy;
     $("cancel").disabled = !busy;
-    $("start").textContent = busy ? "Coletando..." : "Baixar resultados";
-    $("one-click").innerHTML = busy ? "◌ COLETANDO..." : (provider==="ieee"?'<span aria-hidden="true">↓</span> Coletar página':'<span aria-hidden="true">↓</span> Coletar busca');
+    $("start").textContent = busy ? "Processando..." : provider==="capes" ? "Importar arquivo CAPES" : "Baixar resultados";
+    $("one-click").innerHTML = busy ? "◌ PROCESSANDO..." : (provider==="capes"?'<span aria-hidden="true">↓</span> Importar CAPES':provider==="ieee"?'<span aria-hidden="true">↓</span> Coletar página':'<span aria-hidden="true">↓</span> Coletar busca');
   }
   function message(payload) {
     return new Promise((resolve, reject) => {
@@ -338,7 +352,7 @@
     const context=strategy();
     const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.5.2",
+      generator: "DELTA Research Collector 0.5.3",
       source: provider, original_search_url: context.url, exported_at: now.toISOString(),
       search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
       retrieval_mode:retrievalMode,collector_note:collectorNote,
@@ -388,7 +402,7 @@
       const text=format==='html'?globalThis.DELTA_REVIEW.reviewHtml(data.records,{
         source:'biblioteca_local', exported_at:new Date().toISOString(), retrieval_mode:'local_merged_library',
         audit:globalThis.DELTA_REVIEW.auditCoverage({source:'biblioteca_local',collected:data.records.length})
-      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.2',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.3',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
       saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
       $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
@@ -634,6 +648,7 @@
   }
   async function run(quick = false) {
     if (state.running) return;
+    if (provider === "capes") { openCapesFile(); return; }
     state.cancel = false;
     const max = quick ? 200 : Number($("max").value);
     const format = quick ? "csv" : $("format").value;
@@ -677,6 +692,61 @@
     } catch (error) { setStatus(`Não foi possível gerar o arquivo: ${error.message}`, true); }
     finally { setBusy(false); }
   }
+  function openCapesFile() {
+    if(provider!=="capes"||state.running)return;
+    $("capes-file").value="";
+    $("capes-file").click();
+  }
+  async function importCapesFile() {
+    if(provider!=="capes"||state.running)return;
+    const file=$("capes-file").files?.[0];
+    if(!file)return;
+    if(file.size>20_000_000||!/\.(ris|bib|bibtex)$/i.test(file.name)){
+      $("capes-import-status").textContent="Selecione RIS ou BibTeX de até 20 MB.";return;
+    }
+    setPanel(true);
+    setBusy(true);
+    $("capes-import-run").disabled=true;
+    $("capes-import-status").textContent="Lendo referências do arquivo local…";
+    try{
+      const input=await file.text();
+      const parsed=globalThis.DELTA_CAPES.parseNativeExport(input,file.name);
+      const count=parsed.imported;
+      const totalText=$("expected-total").value.trim();
+      const expected=totalText?Number(totalText):null;
+      if(expected!==null&&(!Number.isSafeInteger(expected)||expected<1||expected>10000000))throw Error("Total esperado inválido.");
+      const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(input));
+      const sha=Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
+      const coverage=expected===null?null:Number((100*count/expected).toFixed(2));
+      const mode="capes_native_"+parsed.format.toLowerCase()+"_file_import";
+      const note="Importação de arquivo bibliográfico CAPES "+parsed.format+": "+count+" registros e "+parsed.skipped+" entradas ignoradas. Busca original, filtros, ranking, identidade dos registros e completude não verificados. Nenhum acesso automatizado ao Portal CAPES.";
+      const records=exportRows(parsed.records,$("format").value,count,false,expected===null||count!==expected,note,mode,{
+        original_import_file:file.name,original_import_size:file.size,original_import_sha256:sha,
+        import_format:parsed.format,imported_rows:count,skipped_rows:parsed.skipped,expected_search_total:expected,
+        coverage_percent:coverage,completeness:expected===null?"not_verified":count===expected?"count_match_only":"count_mismatch",
+        query_fidelity:"not_independently_verified",imported_via:"user_selected_native_export"
+      });
+      let saved="";
+      if($("local").checked){
+        const ctx=strategy();
+        try{
+          const result=await message({type:"DELTA_LIBRARY_ADD",records,run:{source:provider,url:ctx.url,query:ctx.query,parameters:ctx.parameters,retrieval_mode:mode,partial:true,note}});
+          saved=" · biblioteca: +"+result.added+" novos e "+result.merged+" combinados"+(result.dropped?", "+result.dropped+" não armazenados":"");
+          refreshLibrary().catch(()=>{});
+        }catch(e){saved=" · biblioteca não atualizada: "+e.message;}
+      }
+      $("capes-import-status").textContent=count+" registros CAPES importados, exportados em "+$("format").value.toUpperCase()+(coverage===null?"; total da busca não informado":"; "+coverage+"% do total informado")+saved+". Fidelidade não verificada.";
+      setStatus("CAPES: "+count+" registros importados. Preserve a exportação original e consulte a auditoria.");
+    }catch(e){
+      $("capes-import-status").textContent="CAPES: "+e.message;
+      setStatus(e.message,true);
+    }finally{
+      $("capes-import-run").disabled=false;
+      setBusy(false);
+    }
+  }
+  $("capes-import-run").addEventListener("click",openCapesFile);
+  $("capes-file").addEventListener("change",()=>void importCapesFile());
   $('strategy-export').addEventListener('click',()=>saveText(JSON.stringify(strategy(),null,2),`DELTA_${provider}_estrategia.json`,'application/json;charset=utf-8'));
   async function importIEEECSV(){
     if(provider!=="ieee"||state.running)return;

@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "DELTA Research Collector",
   "short_name": "DELTA Collector",
-  "version": "0.5.2",
-  "description": "Pesquisa científica: matriz visual de triagem, 11 fontes, auditoria de cobertura e biblioteca local.",
+  "version": "0.5.3",
+  "description": "11 fontes, importação de referências CAPES, matriz de triagem e biblioteca local.",
   "minimum_chrome_version": "109",
   "permissions": [
     "downloads",
@@ -65,11 +65,14 @@
         "https://www.biorxiv.org/*",
         "https://medrxiv.org/*",
         "https://www.medrxiv.org/*",
-        "https://ieeexplore.ieee.org/search/*"
+        "https://ieeexplore.ieee.org/search/*",
+        "https://periodicos.capes.gov.br/*",
+        "https://*.periodicos.capes.gov.br/*"
       ],
       "js": [
         "collector-core.js",
         "review-matrix.js",
+        "capes-import.js",
         "content.js"
       ],
       "run_at": "document_idle"
