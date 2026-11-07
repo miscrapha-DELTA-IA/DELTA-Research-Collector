@@ -7,6 +7,7 @@ on:
       - background.js
       - collector-core.js
       - content.js
+      - review-matrix.js
       - 'icons/**'
       - '.github/workflows/build-installable.yml'
   workflow_dispatch:
@@ -25,9 +26,11 @@ jobs:
           node --check background.js
           node --check collector-core.js
           node --check content.js
+          node --check review-matrix.js
           node tests/test-core.cjs
           node tests/test-background.cjs
           node tests/test-context.cjs
+          node tests/test-review.cjs
       - name: Package unpacked Chromium extension
         run: |
           python3 - <<'PY'
@@ -36,7 +39,7 @@ jobs:
           base=Path('.')
           version=json.loads((base/'manifest.json').read_text())['version']
           name=f'DELTA-Research-Collector_v{version}_INSTALAR.zip'
-          files=[base/'manifest.json',base/'background.js',base/'collector-core.js',base/'content.js',*sorted((base/'icons').glob('*.png'))]
+          files=[base/'manifest.json',base/'background.js',base/'collector-core.js',base/'review-matrix.js',base/'content.js',*sorted((base/'icons').glob('*.png'))]
           with zipfile.ZipFile(name,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
               for f in files:z.write(f,f.as_posix())
           print(name)
