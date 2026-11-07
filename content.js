@@ -106,11 +106,57 @@
       </div>
       <div class="foot">Biblioteca e histórico ficam neste navegador • sem conta • sem servidores DELTA IA</div>
     </section>
-    <div class="delta-controls"><button class="primary" id="delta-one-click" title="Coletar até 200 registros em CSV com um clique"><span aria-hidden="true">↓</span> BAIXAR BUSCA</button><button class="config" id="delta-config" aria-label="Configurar coleta" title="Opções de coleta">⚙</button></div>
+    <div class="delta-controls"><button class="primary" id="delta-one-click" title="Coletar até 200 registros em CSV com um clique"><span aria-hidden="true">↓</span> Coletar busca</button><button class="config" id="delta-config" aria-label="Configurar coleta" title="Opções de coleta">⚙</button></div>
   `;
   shadow.append(view);
   document.documentElement.append(shell);
   const $ = name => shadow.getElementById(`delta-${name}`);
+
+  // Calm UI: reorder existing controls without replacing handlers or data semantics.
+  const panel = $("panel");
+  const header = panel.querySelector(":scope > .top");
+  const baseFields = panel.querySelector(":scope > .two");
+  const actionRow = panel.querySelector(":scope > .buttons");
+  const footer = panel.querySelector(":scope > .foot");
+  const makeFold = (title,description,node,cls="") => {
+    const details = document.createElement("details");
+    details.className = "delta-fold " + cls;
+    const summary = document.createElement("summary");
+    const label = document.createElement("div");
+    const name = document.createElement("span");
+    name.textContent = title;
+    const subtitle = document.createElement("small");
+    subtitle.textContent = description;
+    label.append(name,subtitle);
+    summary.append(label);
+    details.append(summary,node);
+    return details;
+  };
+  const main = document.createElement("section");
+  main.className = "delta-main";
+  const kicker = document.createElement("div");
+  kicker.className = "delta-kicker";
+  kicker.textContent = "BUSCA ATUAL";
+  main.append(kicker,$("query-preview"),$("filter-preview"),baseFields,$("coverage-options"),$("local-label"),actionRow,$("progress"),$("status"),$("note"));
+  const ieeeFold = makeFold("Importar CSV oficial","IEEE Xplore · conjuntos maiores",$("ieee-import"),"delta-ieee-fold");
+  ieeeFold.hidden = provider !== "ieee";
+  const library = $("library");
+  const clearRow = $("clear").parentElement;
+  library.append(makeFold("Gerenciar dados locais","Exclusão de dados",clearRow,"delta-danger"));
+  const libraryFold = makeFold("Biblioteca e matriz","Revisão e exportação dos registros salvos",library,"delta-library-fold");
+  const advanced = document.createElement("div");
+  advanced.className = "delta-advanced";
+  advanced.append($("strategy"),$("oa-label"),$("pdf-label"),$("doaj-options"),$("preprint-options"));
+  const advancedFold = makeFold("Mais opções","Estratégia, acesso e parâmetros da fonte",advanced,"delta-advanced-fold");
+  panel.replaceChildren(header,$("source"),main,ieeeFold,libraryFold,advancedFold,footer);
+  header.querySelector(".eyebrow").textContent = "DELTA / SCIENTIFIC TOOLS";
+  $("config").textContent = "⋯";
+  $("config").setAttribute("aria-label","Abrir ou fechar configurações do DELTA");
+  $("config").title = "Abrir painel";
+  const calmStyle = document.createElement("style");
+  calmStyle.textContent = "\n  #delta-panel {width:min(420px,calc(100vw - 24px));max-height:calc(100dvh - 100px);overflow:auto;padding:0;color:#1c3341;\n    background:#f8fafb;border:1px solid #dbe4e9;border-radius:15px;box-shadow:0 10px 35px #0a29372b;font-family:system-ui,-apple-system,\"Segoe UI\",sans-serif;}\n  #delta-panel .top {padding:17px 19px 13px;align-items:center}\n  #delta-panel .eyebrow {color:#6b808b;font-size:10px;letter-spacing:.07em;margin:0 0 3px}\n  #delta-panel h2 {font-size:18px;letter-spacing:-.025em;color:#163442;font-weight:700}\n  #delta-panel .sub {padding:0 19px 15px;margin:0;color:#197583;font-size:12px;font-weight:600}\n  #delta-panel .delta-main {padding:17px 19px 19px;background:#fff;border-top:1px solid #e7edef}\n  #delta-panel .delta-kicker {font-size:10px;color:#70818c;font-weight:750;letter-spacing:.09em}\n  #delta-panel #delta-query-preview {padding:7px 0 0;min-height:0;color:#253b46;font-weight:650;font-size:13px}\n  #delta-panel #delta-filter-preview {padding:5px 0 12px;min-height:0;color:#72828c;font-size:11px}\n  #delta-panel .two {display:grid;grid-template-columns:1fr 1fr;gap:12px}\n  #delta-panel label:not(.check) {display:block;color:#4b6070;font-size:11px;font-weight:650;margin:10px 0 6px}\n  #delta-panel .two label {margin-top:0}\n  #delta-panel select,#delta-panel input[type=\"text\"],#delta-panel input[type=\"date\"],#delta-panel input[type=\"number\"],#delta-panel input[type=\"file\"] {\n    font:inherit;font-size:12px;color:#243c48;background:#fff;border:1px solid #ccd8dd;border-radius:9px;min-height:39px;height:auto;padding:8px 10px;width:100%;min-width:0;}\n  #delta-panel #delta-coverage-options {margin:13px 0 6px;padding:11px 12px 9px;background:#f7f9fa;border:1px solid #e2e9ed;border-radius:10px}\n  #delta-panel #delta-coverage-options > strong,#delta-panel #delta-coverage-options > .note {display:none}\n  #delta-panel #delta-coverage-options label {margin:0 0 6px}\n  #delta-panel #delta-expected-total {background:#fff;color:#1c3341;border:1px solid #cbd9df;min-height:36px}\n  #delta-panel #delta-audit-result {font-size:11px;color:#65808e;margin:7px 0 0;padding:0;min-height:0}\n  #delta-panel #delta-local-label {margin:12px 0;color:#526673;font-size:11px}\n  #delta-panel .check input {accent-color:#117b82}\n  #delta-panel .buttons {margin:0;gap:8px}\n  #delta-panel .act {background:#116b73;border-radius:9px;color:white;font-size:13px;font-weight:700;padding:12px;border:none}\n  #delta-panel .act:hover {background:#0d5c65;transform:none}\n  #delta-panel .ghost {background:#fff;color:#526b79;border:1px solid #d6e1e6;border-radius:9px;padding:9px 12px}\n  #delta-panel .ghost:hover {transform:none}\n  #delta-panel #delta-status {font-size:11px;color:#5c737f;line-height:1.5;padding:8px 0 0;min-height:0}\n  #delta-panel #delta-status.err {color:#9e4554}\n  #delta-panel progress {height:5px;margin:12px 0 0;background:#e6ecef}\n  #delta-panel progress::-webkit-progress-bar {background:#e6ecef}\n  #delta-panel progress::-webkit-progress-value {background:#158a8d}\n  #delta-panel #delta-note {font-size:11px;line-height:1.55;color:#6d808a;margin:11px 0 0}\n  #delta-panel .delta-fold {border-top:1px solid #e5ebee;margin:0;background:#f8fafb}\n  #delta-panel [hidden] {display:none!important}\n  #delta-panel .delta-fold > summary {padding:15px 19px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:8px;align-items:center}\n  #delta-panel .delta-fold > summary::-webkit-details-marker {display:none}\n  #delta-panel .delta-fold > summary:after {content:\"+\";color:#718692;font-size:18px}\n  #delta-panel .delta-fold[open] > summary:after {content:\"−\"}\n  #delta-panel .delta-fold summary span {font-size:13px;font-weight:700;color:#28404e}\n  #delta-panel .delta-fold summary small {display:block;font-size:10px;font-weight:400;color:#72848e;margin-top:3px}\n  #delta-panel .delta-fold > .special,#delta-panel .delta-fold > .delta-advanced {border:1px solid #e2e9ee;border-radius:10px;background:#fff;padding:13px;margin:0 13px 13px}\n  #delta-panel .special {border-color:#e2e9ee;background:#fff;color:#344c59}\n  #delta-panel .special .note {color:#667f8a}\n  #delta-panel #delta-ieee-import > strong,#delta-panel #delta-library .top > strong {display:none}\n  #delta-panel #delta-library .top {padding:0}\n  #delta-panel .mini {border:1px solid #d0e1e6;background:#f5f9fa;color:#27616b;border-radius:9px;font-size:11px;padding:9px 11px}\n  #delta-panel .mini:hover {background:#eaf3f5}\n  #delta-panel .history {color:#637b86;line-height:1.6}\n  #delta-panel .delta-danger {border:0;background:transparent;margin-top:12px}\n  #delta-panel .delta-danger > summary {padding:6px 0}\n  #delta-panel .delta-danger summary span {font-size:11px;color:#647b87}\n  #delta-panel .delta-danger .minirow {padding-top:5px}\n  #delta-panel #delta-clear {color:#a04452}\n  #delta-panel .delta-advanced {display:flex;flex-direction:column;gap:8px}\n  #delta-panel .delta-advanced .special {margin:0}\n  #delta-panel .delta-advanced .check {font-size:11px;line-height:1.5;margin:7px 0}\n  #delta-panel .foot {padding:12px 19px 15px;margin:0;border-top:1px solid #e5ebee;color:#8a99a2;text-align:center;font-size:10px}\n  #delta-panel select:focus-visible,#delta-panel input:focus-visible,#delta-panel button:focus-visible,#delta-panel summary:focus-visible {\n    outline:2px solid #0d8590;outline-offset:2px}\n  .delta-controls {gap:7px}\n  .delta-controls .primary {background:#143a49;color:white;border:1px solid #91adb6;box-shadow:0 3px 13px #173a4a28;border-radius:11px;\n    font-size:12px;font-weight:650;letter-spacing:0;padding:11px 14px}\n  .delta-controls .primary:hover {transform:none;box-shadow:0 5px 16px #173a4a32}\n  .delta-controls .config {background:#fff;color:#315565;border:1px solid #cbd9df;box-shadow:0 3px 10px #16384b16;border-radius:11px;width:41px;height:41px;font-size:23px}\n  .delta-controls .config:hover {transform:none}\n  @media(max-width:560px) {\n    #delta-panel {width:min(420px,calc(100vw - 16px));max-height:calc(100dvh - 75px)}\n    #delta-panel .top {padding:15px}\n    #delta-panel .delta-main {padding:15px}\n    #delta-panel .delta-fold > summary {padding:14px 15px}\n  }\n  @media(prefers-reduced-motion:reduce){*{transition:none!important}}\n";
+  shadow.append(calmStyle);
+
   const providers = {
     ieee: ["IEEE Xplore", "Apenas cartões visíveis nesta página. Exportação parcial; sem paginação automática."],
     arxiv: ["arXiv", "Preserva a URL avançada. Até 20 PDFs opcionais."],
@@ -126,14 +172,14 @@
   };
   const strategy=()=>core.searchContext(location.href);
   const showStrategy=()=>{$('query-preview').textContent='Busca: '+(strategy().query||'(não identificada na URL)');$('filter-preview').textContent='Parâmetros: '+Object.keys(strategy().parameters).length+' · filtros: '+Object.keys(strategy().filters).length;};
-  $("source").textContent = `${providers[provider][0]} · resultados da busca atual`;
+  $("source").textContent = providers[provider][0] + " · busca atual";
   showStrategy();
   $("note").textContent = providers[provider][1];
   if (provider === "semanticscholar") $("max").querySelector('option[value="2000"]').disabled = true;
   $("pdf-label").hidden = provider !== "arxiv";
   $("doaj-options").hidden = provider !== 'doaj';
   $("ieee-import").hidden = provider !== "ieee";
-  if(provider==="ieee"){$("one-click").innerHTML='<span aria-hidden="true">↓</span> SOMENTE ESTA PÁGINA';$("one-click").title="IEEE: coleta somente a página atual (normalmente 25). Para a busca inteira use Export Results → CSV.";}
+  if(provider==="ieee"){$("one-click").innerHTML='<span aria-hidden="true">↓</span> Coletar página';$("one-click").title="IEEE: coleta somente a página atual (normalmente 25). Para a busca inteira use Export Results → CSV.";}
   $("preprint-options").hidden = !['biorxiv','medrxiv'].includes(provider);
   const today = new Date();
   const ago = new Date(today.getTime()-7*86400000);
@@ -158,7 +204,7 @@
     $("one-click").disabled = busy;
     $("cancel").disabled = !busy;
     $("start").textContent = busy ? "Coletando..." : "Baixar resultados";
-    $("one-click").innerHTML = busy ? "◌ COLETANDO..." : (provider==="ieee"?'<span aria-hidden="true">↓</span> SOMENTE ESTA PÁGINA':'<span aria-hidden="true">↓</span> BAIXAR BUSCA');
+    $("one-click").innerHTML = busy ? "◌ COLETANDO..." : (provider==="ieee"?'<span aria-hidden="true">↓</span> Coletar página':'<span aria-hidden="true">↓</span> Coletar busca');
   }
   function message(payload) {
     return new Promise((resolve, reject) => {
