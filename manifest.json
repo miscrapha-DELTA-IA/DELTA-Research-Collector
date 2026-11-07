@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "DELTA Research Collector",
   "short_name": "DELTA Collector",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Pesquisa científica: 11 fontes, estratégias reprodutíveis, acesso aberto e biblioteca local.",
   "minimum_chrome_version": "109",
   "permissions": [
