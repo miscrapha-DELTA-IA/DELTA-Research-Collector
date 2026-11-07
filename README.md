@@ -24,6 +24,8 @@
   </p>
 </div>
 
+**Interface v0.5.1:** painel de coleta simplificado. A busca, os limites, o total informado e a exportação ficam em primeiro plano. Importação IEEE, matriz visual, biblioteca e ajustes técnicos aparecem em seções expansíveis. A coleta permanece experimental.
+
 > [!IMPORTANT]
 > **Projeto experimental.** O DELTA auxilia a coleta e a organização bibliográfica, mas não assegura que uma exportação reproduza integralmente os filtros, a ordenação ou o número de resultados exibido por cada base. Confirme a cobertura antes de reportar números em um estudo científico.
 
