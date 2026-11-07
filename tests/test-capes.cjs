@@ -37,3 +37,27 @@ const manifest=JSON.parse(fs.readFileSync(require("node:path").join(__dirname,".
 assert.ok(manifest.content_scripts[0].js.includes("collector-core.js"));
 assert.ok(!manifest.content_scripts[0].js.includes("capes-import.js"),"No separate CAPES content script dependency");
 assert.match(fs.readFileSync(require("node:path").join(__dirname,"..","content.js"),"utf8"),/core\.parseCapesNativeExport/, "UI must read the core parser");
+
+// Regression: a real CAPES export contained six @Revisão records and 24 other types.
+// The pre-fix parser silently returned 24 records with skipped=0 instead of 30.
+const publicationTypes=Array.from({length:30},(_,i)=>i<6?"Revisão":i===6?"Carta":i===7?"Editorial":i===8?"book":"article");
+const nativeBib=publicationTypes.map((type,i)=>
+  "@"+type+"{W"+(8000000+i)+",\n"+
+  "title={CAPES synthetic record "+(i+1)+"},\n"+
+  "author={Researcher "+(i+1)+"},\n"+
+  "year={2026},\n"+
+  "doi={10.9999/CAPES."+(i+1)+"}\n}\n").join("\n");
+const nativeRis=publicationTypes.map((type,i)=>
+  "TY  - "+type+"\nID  - W"+(8000000+i)+"\nTI  - CAPES synthetic record "+(i+1)+
+  "\nAU  - Researcher "+(i+1)+"\nPY  - 2026\nDO  - 10.9999/CAPES."+(i+1)+"\nER  - \n").join("\n");
+const importedBib=parse(nativeBib,"CAPES-Revisão.bib");
+const importedRis=parse(nativeRis,"CAPES-Revisão.ris");
+assert.equal(importedBib.imported,30,"All 30 original records must be preserved");
+assert.equal(importedBib.skipped,0,"Unicode entry types are not ignored");
+assert.equal(importedRis.imported,30);
+assert.deepEqual(importedBib.records.map(x=>x.identifier),importedRis.records.map(x=>x.identifier));
+assert.deepEqual(importedBib.records.map(x=>x.title),importedRis.records.map(x=>x.title));
+assert.deepEqual(importedBib.records.map(x=>x.doi),importedRis.records.map(x=>x.doi));
+assert.equal(new Set(importedBib.records.map(x=>x.identifier)).size,30);
+assert.throws(()=>parse("@🧬{W1,\ntitle={Unknown biomedical article}\n}","unknown.bib"),/inconsistência/);
+console.log("PASS: CAPES 30-record Unicode-type regression + BibTeX/RIS parity.");
