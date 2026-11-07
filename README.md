@@ -1,117 +1,171 @@
 <div align="center">
+  <img src="assets/branding/delta-banner.webp" width="100%" alt="Banner do DELTA Research Collector: identidade visual triangular em azul-marinho e turquesa, documentos e busca científica" />
 
-<img src="icons/128.png" alt="DELTA Research Collector icon" width="96">
+  <h1>DELTA Research Collector</h1>
+  <p><strong>Da busca à bibliografia, com contexto, proveniência e transparência.</strong></p>
+  <p>Extensão open-source para coletar e organizar metadados científicos diretamente do navegador.</p>
 
-# DELTA Research Collector
-
-**Colete, organize e exporte resultados de pesquisas científicas diretamente do navegador.**
-
-Extensão experimental de código aberto para **Opera GX, Chrome e Edge** (Manifest V3).
-
-[![Versão](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector) [![Licença GPL--3.0](https://img.shields.io/badge/license-GPL--3.0--or--later-green)](LICENSE) [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-lightgrey)](manifest.json)
-
-[English](README.en.md) · [Instalação](#instalação) · [Bases compatíveis](#bases-compatíveis) · [Limitações](#limitações-científicas)
-
+  <p>
+    <a href="https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector/releases/latest"><img alt="Release mais recente" src="https://img.shields.io/github/v/release/miscrapha-DELTA-IA/DELTA-Research-Collector?label=release" /></a>
+    <a href="https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector/actions/workflows/tests.yml"><img alt="Testes no GitHub Actions" src="https://img.shields.io/github/actions/workflow/status/miscrapha-DELTA-IA/DELTA-Research-Collector/tests.yml?branch=main&label=tests" /></a>
+    <a href="LICENSE"><img alt="Licença GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-147D84" /></a>
+    <img alt="Chromium Manifest V3" src="https://img.shields.io/badge/Chromium-Manifest%20V3-092D52" />
+    <img alt="11 plataformas integradas" src="https://img.shields.io/badge/integrations-11-0FAAB4" />
+  </p>
+  <p>
+    <strong>🇧🇷 Português</strong> &nbsp;·&nbsp; <a href="README.en.md">🇺🇸 English</a> &nbsp;·&nbsp; <a href="README.es.md">🇪🇸 Español</a>
+  </p>
+  <p>
+    <a href="#instalação-em-2-minutos">Instalar</a> ·
+    <a href="#como-funciona">Como funciona</a> ·
+    <a href="#cobertura-por-base">Compatibilidade</a> ·
+    <a href="#reprodutibilidade-e-integridade-científica">Integridade científica</a> ·
+    <a href="#desenvolvimento">Desenvolvimento</a>
+  </p>
 </div>
 
-## O que faz
-
-- **Um botão na página de resultados:** exporta metadados bibliográficos em **CSV, BibTeX, RIS** (importável no Zotero) e **JSON**.
-- **Onze fontes compatíveis**, com estratégias de coleta adaptadas a cada plataforma.
-- **Biblioteca local unificada:** identifica DOIs repetidos entre bases e preserva as fontes originais.
-- **Histórico de coletas:** guarda URL, data, origem, contagens e indicação de resultados parciais.
-- **PDFs:** solicitação opcional de até 20 PDFs no arXiv. Outras bases podem fornecer links, sem download em lote.
-- **Sem conta ou servidor próprio:** a biblioteca permanece no armazenamento local do navegador.
-
 > [!IMPORTANT]
-> Projeto **experimental**. A exportação não garante recuperação exaustiva nem equivalência perfeita com os filtros e o ranking da interface de cada base. Para revisões sistemáticas, registre e confira manualmente a estratégia, a data e os totais da pesquisa.
+> **Projeto experimental.** O DELTA auxilia a coleta e a organização bibliográfica, mas não assegura que uma exportação reproduza integralmente os filtros, a ordenação ou o número de resultados exibido por cada base. Confirme a cobertura antes de reportar números em um estudo científico.
 
-## Bases compatíveis
+## Por que usar?
 
-| Base | Coleta | Observação |
+| Coleta contextual | Metadados interoperáveis | Rastreabilidade | Biblioteca local |
+|:---:|:---:|:---:|:---:|
+| Abre na aba de pesquisa atual | CSV, RIS, BibTeX e JSON | String de busca, filtros e data | DOI normalizado e histórico |
+
+O fluxo foi criado para quem alterna entre diferentes mecanismos de descoberta de literatura e precisa **evitar copiar referências manualmente**, **manter a estratégia de busca** e **distinguir resultados recuperados de resultados apenas encontrados**.
+
+### Principais recursos
+
+- **Um botão de coleta** nas páginas compatíveis, com limites configuráveis por operação.
+- **Exportação bibliográfica** em CSV, RIS (importável no Zotero), BibTeX e JSON.
+- **Registro de estratégia** em `*_estrategia.json` com URL, termos e parâmetros recuperáveis.
+- **Biblioteca consolidada no navegador**, com deduplicação por DOI e histórico de operações.
+- **Sinais de acesso ao texto completo**, incluindo cópia aberta identificada, restrição da editora ou status desconhecido.
+- **PDFs do arXiv**, até 20 solicitações opcionais por coleta, sem contornar controles de acesso.
+
+## Instalação em 2 minutos
+
+**[Baixar a última Release](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector/releases/latest)** · [Código-fonte](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector)
+
+1. Baixe `DELTA-Research-Collector_v*_INSTALAR.zip` em **Assets** da Release.
+2. Extraia o ZIP numa pasta permanente (não selecione o ZIP diretamente).
+3. Abra `opera://extensions`, `chrome://extensions` ou `edge://extensions`.
+4. Ative **Modo do desenvolvedor** e escolha **Carregar sem compactação / Load unpacked**.
+5. Selecione a pasta que contém o arquivo **`manifest.json` na raiz**.
+6. Abra uma busca no [arXiv](https://arxiv.org/search/?query=bioinformatics&searchtype=all&size=50) ou no [PubMed](https://pubmed.ncbi.nlm.nih.gov/?term=dengue) e atualize a página.
+
+> **Atualização:** para preservar a biblioteca local da extensão já instalada, substitua os arquivos na mesma pasta de instalação e clique em **Recarregar** em `opera://extensions`. Evite instalar duas cópias simultâneas.
+
+## Como funciona
+
+```mermaid
+flowchart LR
+    A[Busca no navegador] --> B[Adaptador da fonte]
+    B --> C[Metadados e proveniência]
+    C --> D{Conferir cobertura}
+    D --> E[CSV / RIS / BibTeX / JSON]
+    E --> F[Biblioteca local / Zotero]
+    C --> G[estrategia.json]
+```
+
+**Exemplo de uso:** execute sua busca, abra o painel do DELTA, confira fonte e parâmetros, selecione a exportação, compare a quantidade recuperada com a quantidade esperada e guarde o arquivo de estratégia junto aos resultados.
+
+<details>
+<summary><strong>IEEE Xplore: por que às vezes vêm somente ~25 registros?</strong></summary>
+
+A coleta direta do IEEE é baseada nos **cartões visíveis na página**, não nos resultados de todas as páginas. Se o IEEE mostrar 512 resultados e a extensão recuperar aproximadamente 25, a coleta é **parcial**. Para grandes conjuntos, utilize a exportação **CSV nativa do IEEE Xplore** e importe esse arquivo no painel do DELTA. Informe o total esperado para conferir a contagem. A correspondência numérica, por si só, não valida a exatidão de todos os metadados.
+</details>
+
+## Cobertura por base
+
+| Fonte | Estratégia de integração | Limitação a observar |
 |---|---|---|
-| IEEE Xplore | Cartões visíveis nesta página | Sem API privada ou paginação, sempre parcial |\n| arXiv | Resultados HTML paginados | PDFs opcionais, até 20 |
-| Europe PMC | API oficial | Metadados e resumos disponíveis |
-| PubMed | NCBI ESearch + EFetch | Bloqueia filtros laterais não reproduzíveis |
-| OpenAlex | API oficial | Resumos quando disponíveis |
-| Crossref | API oficial | Cobertura e ranking podem diferir da interface |
-| Semantic Scholar | Academic Graph API | Pode limitar volume e requisições |
-| DOAJ | API pública de artigos | Filtros complexos da interface não são preservados |
-| SciELO | Leitura experimental do HTML | Sensível a mudanças da página/bloqueios |
-| bioRxiv | API por intervalo de datas | Filtro textual local, não equivale à busca do site |
-| medRxiv | API por intervalo de datas | Filtro textual local, não equivale à busca do site |
+| **IEEE Xplore** | Cartões visíveis e importação de CSV nativo | Coleta direta parcial; não pagina automaticamente |
+| **arXiv** | Resultados HTML paginados | Alterações no HTML podem afetar a coleta |
+| **Europe PMC** | API oficial | Campos dependem dos registros disponíveis |
+| **PubMed** | NCBI ESearch + EFetch | Filtros laterais não traduzíveis são bloqueados |
+| **OpenAlex** | API | Cobertura e ranking podem divergir do site |
+| **Crossref** | API | Metadados e ordenação podem divergir da interface |
+| **Semantic Scholar** | API Academic Graph | Limites de requisição e de quantidade |
+| **DOAJ** | API pública | Filtros complexos da interface podem não ser reproduzidos |
+| **SciELO** | Extração HTML experimental | Mudanças de layout e restrições de acesso |
+| **bioRxiv** | API por intervalo de datas | Filtro textual local não equivale à busca do site |
+| **medRxiv** | API por intervalo de datas | Filtro textual local não equivale à busca do site |
 
-## Busca reprodutível e recuperabilidade
+**11 integrações ≠ 11 coletas exaustivas.** As estratégias de extração diferem; nenhuma base deve ser considerada validada para revisão sistemática apenas pela presença nesta tabela.
 
-A versão 0.4.1 abre o painel na **aba ativa**, inclusive no IEEE Xplore, sem redirecionar ao arXiv. Cada exportação produz um arquivo adicional `*_estrategia.json` com expressão, parâmetros, filtros codificados na URL, data, limite e modo de obtenção. Dados CSV/JSON incluem status de acesso, fonte da evidência e URL aberta quando disponível.
+## Reprodutibilidade e integridade científica
 
-O IEEE Xplore é **experimental**: sem chave da API oficial, somente os resultados visíveis são capturados e o conjunto é identificado como parcial. A consulta opcional via DOI ao OpenAlex identifica cópias abertas de até 20 artigos por operação. A ausência de OA não confirma paywall. Filtros que o site não codifica na URL exigem auditoria manual.
+A exportação de estratégia ajuda a registrar os passos da pesquisa:
 
-### IEEE Xplore — recuperar os resultados completos
+| Campo | Finalidade |
+|---|---|
+| `search_query` / expressão | Registrar os termos detectados |
+| URL e parâmetros | Preservar filtros codificados no endereço |
+| Data/hora | Situar temporalmente a consulta |
+| Fonte e método | Diferenciar API, HTML, página visível e importação |
+| Total esperado / recuperado | Identificar lacunas de cobertura quando conhecido |
+| Status de acesso e evidência | Separar acesso aberto confirmado de indícios e desconhecimento |
 
-O botão rápido do IEEE captura **apenas a página visível** (normalmente 25 artigos), mesmo que a busca mostre centenas de resultados. Para obter o conjunto de uma pesquisa de 512 resultados:
+**Estados de acesso:** `open`, `publisher_restricted`, `no_open_copy_found`, `unknown`. **Não encontrar uma cópia aberta não comprova paywall.** Links para texto completo não garantem download ou permissão de reutilização.
 
-1. Na **mesma pesquisa do IEEE Xplore**, use a função oficial **Export Results → CSV** (disponível para conjuntos de até 2.000 registros).
-2. Abra a engrenagem do DELTA Collector e selecione o arquivo em **IEEE Xplore — importar todos os resultados**.
-3. Informe opcionalmente o total retornado pela busca (exemplo: **512**) para conferir a cobertura.
-4. Escolha CSV, RIS, BibTeX ou JSON. A extensão importa localmente o arquivo, preserva o contexto da busca em \`*_estrategia.json\` e pode adicionar os registros à biblioteca.
+Para relatar resultados em artigos e revisões, preserve também o CSV original da plataforma, documente exclusões e faça conferência independente. Consulte [Metodologia](docs/METHODOLOGY.md).
 
-O DELTA registra a diferença entre registros importados e total esperado. Sem informar o total, a **completude não é verificada**. A importação não acessa artigos restritos nem ignora paywalls.
+## Biblioteca local, privacidade e Zotero
 
-## Instalação
+A biblioteca usa `chrome.storage.local`, admite até **12.000 registros únicos** e mantém as **80 operações** mais recentes. A deduplicação procura o DOI normalizado; sem DOI, usa **fonte + identificador**. Preprints e artigos publicados com DOIs distintos podem permanecer separados.
 
-**Opera GX** (procedimento semelhante em Chrome e Edge):
+A extensão não exige conta DELTA ou backend próprio. A exportação **RIS/BibTeX permite importar** registros no Zotero, mas **não implementa sincronização direta** com a conta. Uma consulta opcional de acesso aberto por DOI utiliza a API OpenAlex, que recebe esses DOIs.
 
-1. Baixe o [ZIP da v0.4.1 gerado pelo GitHub Actions](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector/actions/workflows/build-installable.yml) (abra a execução mais recente e baixe o artefato instalável; é necessário entrar no GitHub) e extraia tudo em uma pasta permanente.
-2. Abra `opera://extensions` e ative **Modo do desenvolvedor**.
-3. Clique em **Carregar sem compactação** e escolha a pasta que contém `manifest.json` diretamente.
-4. Se já instalou uma versão anterior, desative-a para não exibir botões duplicados.
-5. Visite uma busca do [arXiv](https://arxiv.org/search/?query=bioinformatics&searchtype=all&size=50) ou [PubMed](https://pubmed.ncbi.nlm.nih.gov/?term=dengue) e atualize a página.
-6. Use **BAIXAR BUSCA** para exportação rápida ou a **engrenagem** para escolher formato, limite e biblioteca.
-
-**Desenvolvimento:** é possível carregar **a raiz deste repositório diretamente** como extensão descompactada, sem precisar do ZIP.
-
-## Biblioteca e Zotero
-
-- A biblioteca local é limitada a **12.000 registros únicos**; o histórico mantém as **últimas 80 coletas**.
-- A deduplicação utiliza **DOI normalizado**; sem DOI, usa a combinação **fonte + identificador**. Títulos parecidos não são fundidos automaticamente.
-- A exportação **RIS/BibTeX** é compatível com a função de importação do Zotero, mas **não sincroniza automaticamente** com uma conta Zotero.
-- A biblioteca usa `chrome.storage.local`; nenhuma conta DELTA IA é necessária.
-
-## Testes
-
-Requer [Node.js](https://nodejs.org/) para os testes de lógica (nenhum pacote npm é necessário):
+## Desenvolvimento
 
 ```bash
+git clone https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector.git
+cd DELTA-Research-Collector
 node --check collector-core.js
-node --check background.js
 node --check content.js
+node --check background.js
 node tests/test-core.cjs
 node tests/test-background.cjs
+node tests/test-context.cjs
 ```
 
-Os testes verificam parsers, URLs, exportação, deduplicação e armazenamento simulado. **Não substituem testes integrados com APIs reais ou uma instalação no Opera GX.**
+Os testes unitários e a verificação de sintaxe rodam também pelo [GitHub Actions](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector/actions/workflows/tests.yml). **Eles não substituem testes ao vivo nos sites das bases.**
 
-## Limitações científicas
-
-A ferramenta impõe limites de **50 a 2.000 registros por operação**, conforme a fonte. BioRxiv/medRxiv percorrem metadados por **datas**, e uma busca textual local pode deixar artigos de fora. Em falhas e limites de API, um arquivo pode ser **parcial**. A ferramenta não contorna login, paywalls, CAPTCHA ou restrições de acesso. Consulte [metodologia e limitações](docs/METHODOLOGY.md).
-
-## Organização do projeto
+<details>
+<summary><strong>Arquitetura resumida</strong></summary>
 
 ```text
-manifest.json             # Manifest V3 — carregável na raiz
-content.js                # Botão flutuante e interface
-background.js             # Requisições, download e armazenamento
-collector-core.js         # Adaptadores, exportadores e deduplicação
-icons/                    # Ícones da extensão
-tests/                    # Testes de lógica e de navegador
-docs/                     # Metodologia e arquitetura
-dist/                     # ZIP instalável da versão estável
-.github/workflows/        # Verificação automatizada
+manifest.json                Chromium Manifest V3
+content.js                   Interface e coleta na página
+collector-core.js            Adaptadores, normalização, exportação
+background.js                Requisições permitidas, biblioteca, downloads
+icons/                       Ícones da extensão instalada
+assets/branding/             Identidade visual do repositório
+tests/                       Testes unitários e verificações
+docs/                        Metodologia e arquitetura
+.github/workflows/           CI e empacotamento
 ```
 
-## Contribuição, privacidade e créditos
+Mais detalhes em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+</details>
 
-Leia [CONTRIBUTING.md](CONTRIBUTING.md) e [SECURITY.md](SECURITY.md) antes de enviar alterações. Este projeto foi **inspirado** no [arxivcollector](https://github.com/koenraijer/arxivcollector) de Koen Raijer (GPL-3.0); a implementação apresentada aqui é em JavaScript, voltada a extensões de navegador. Licenciado sob **GPL-3.0-or-later**; consulte [LICENSE](LICENSE).
+## Roadmap
 
-Desenvolvido como iniciativa **DELTA IA**. Consulte o [histórico de versões](CHANGELOG.md).
+- [ ] Melhorar coleta com paginação verificável no IEEE por métodos autorizados.
+- [ ] Suporte mais amplo a importações CSV/RIS nativas das bases.
+- [ ] Auditorias de equivalência de filtros e de cobertura por conector.
+- [ ] Visualização consolidada de duplicatas, versões e proveniência.
+- [ ] UX e acessibilidade do painel; tradução da interface.
+- [ ] Testes end-to-end controlados em navegadores Chromium.
+
+## Comunidade e atribuição
+
+Bugs e sugestões: [Issues](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector/issues) · Como contribuir: [CONTRIBUTING.md](CONTRIBUTING.md) · Segurança: [SECURITY.md](SECURITY.md) · Histórico: [CHANGELOG.md](CHANGELOG.md).
+
+Iniciativa do ecossistema **DELTA IA**, inspirada pelo projeto [arxivcollector](https://github.com/koenraijer/arxivcollector) de Koen Raijer. Código distribuído sob os termos indicados no arquivo [LICENSE](LICENSE). Não há afiliação oficial com as bases listadas.
+
+<div align="center">
+  <sub>Ciência aberta exige não apenas encontrar resultados, mas saber como eles foram encontrados.</sub>
+</div>
