@@ -21,9 +21,12 @@ assert.match(script, /String\(Boolean\(visible\)\)/, "The opener should synchron
 assert.match(script, /search_query/, "Search provenance should remain in exports");
 console.log("PASS: essential controls, progressive disclosure and accessibility labels present.");
 
-assert.match(script,/capes:collectCapes/, "CAPES must have a direct browser collector");
+assert.match(script,/await collectCapes\(quick\)/, "CAPES must start the browser navigation collector");
 assert.match(script,/async function collectCapes/, "CAPES collector must implement pagination");
-assert.match(script,/"capes_visible_search_pages_experimental"/, "CAPES audit must identify experimental retrieval mode");
+assert.match(script,/"capes_browser_navigation_paged_experimental"/, "CAPES audit must identify browser navigation retrieval mode");
+assert.match(script,/async function resumeCapesRun\(/, "CAPES must resume after reload");
+assert.match(script,/DELTA_CAPES_RUN_SAVE/, "CAPES must persist progress before navigation");
+assert.match(script,/location\.assign\(core\.capesPageUrl\(run\.baseUrl,run\.currentPage\)\)/, "CAPES must follow native page parameter");
 assert.doesNotMatch(script,/if \(provider === "capes"\) \{ openCapesFile\(\); return; \}/, "CAPES one-click must not force file import");
 
 assert.doesNotMatch(script,/selector:\s*"button\[aria-label\]"/,"CAPES diagnostic must not sample account-header controls");
