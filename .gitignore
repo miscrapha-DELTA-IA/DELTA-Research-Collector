@@ -1,0 +1,13 @@
+# Local development / archives / operating system
+node_modules/
+coverage/
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak
+*.crx
+*.pem
+.env
+.env.*
+!.env.example

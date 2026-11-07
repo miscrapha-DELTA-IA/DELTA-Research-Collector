@@ -1,0 +1,103 @@
+/* DELTA Research Collector v0.3.0 • GPL-3.0-or-later. */
+"use strict";
+function allowedFetch(uri) {
+  let u;
+  try { u = new URL(uri); } catch { return false; }
+  if (u.protocol !== 'https:') return false;
+  const key = `${u.hostname}${u.pathname}`;
+  return (u.hostname === 'arxiv.org' && u.pathname.startsWith('/search/')) ||
+    key === 'www.ebi.ac.uk/europepmc/webservices/rest/search' ||
+    (u.hostname === 'eutils.ncbi.nlm.nih.gov' && /^\/entrez\/eutils\/(esearch|efetch)\.fcgi$/.test(u.pathname)) ||
+    key === 'api.openalex.org/works' ||
+    key === 'api.crossref.org/works' ||
+    key === 'api.semanticscholar.org/graph/v1/paper/search' ||
+    (u.hostname === 'doaj.org' && u.pathname.startsWith('/api/search/articles/')) ||
+    (u.hostname === 'search.scielo.org' && u.pathname === '/') ||
+    (u.hostname === 'api.biorxiv.org' && /^\/details\/(biorxiv|medrxiv)\/\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}\/\d+$/.test(u.pathname));
+}
+function allowedPdf(uri) {
+  let u;
+  try { u = new URL(uri); } catch { return false; }
+  return u.protocol === 'https:' && u.hostname === 'arxiv.org' && /^\/pdf\/[A-Za-z0-9.\-_/]+(?:\.pdf)?$/.test(u.pathname);
+}
+
+const LIB_KEY='delta_v03_library', HIST_KEY='delta_v03_history';
+const MAX_ITEMS=12000, MAX_HIST=80;
+const norm = (v)=>String(v||'').trim();
+const normalizeDoi=(v)=>norm(v).replace(/^https?:\/\/(?:dx\.)?doi\.org\//i,'').replace(/^doi:\s*/i,'').toLowerCase().replace(/[.,;]+$/,'');
+const libraryKey=(r)=>{
+  const doi=normalizeDoi(r.doi);
+  return /^10\.\d{4,9}\//.test(doi)?`doi:${doi}`:`id:${norm(r.source).toLowerCase()}:${norm(r.identifier).toLowerCase()}`;
+};
+const merge=(a,b)=>{
+  const r={...a,sources:[...new Set([...(a.sources||[a.source]),...(b.sources||[b.source])])].filter(Boolean)};
+  for (const k of ['title','abstract','journal','pdf_url','article_url','year','date']) if(String(b[k]||'').length>String(r[k]||'').length)r[k]=b[k];
+  if((b.authors?.length||0)>(r.authors?.length||0))r.authors=b.authors;
+  if(!r.doi&&b.doi)r.doi=b.doi;
+  return r;
+};
+// Sequential mutation queue prevents two tabs overwriting the library concurrently.
+let storageQueue=Promise.resolve();
+function enqueue(op){const job=storageQueue.then(op);storageQueue=job.catch(()=>{});return job;}
+async function appendLibrary(records,run){
+  if(!Array.isArray(records)||records.length>2000||!records.every(r=>r && typeof r==='object' && norm(r.title).length<4000))throw Error('Lote de biblioteca inválido');
+  const data=await chrome.storage.local.get([LIB_KEY,HIST_KEY]);
+  const map=new Map((data[LIB_KEY]||[]).map(r=>[libraryKey(r),r]));
+  let added=0,merged=0,dropped=0;
+  for(const r of records){
+    const id=libraryKey(r);
+    if(!norm(r.title)||(!norm(r.identifier)&&!norm(r.doi)))continue;
+    if(map.has(id)){map.set(id,merge(map.get(id),r));merged++;}
+    else if(map.size<MAX_ITEMS){map.set(id,{...r,sources:r.sources||[r.source]});added++;}
+    else dropped++;
+  }
+  const hist=[...(data[HIST_KEY]||[])];
+  hist.unshift({id:`${Date.now()}-${Math.random().toString(36).slice(2,7)}`,source:run.source||'',url:run.url||'',
+    date:new Date().toISOString(),received:records.length,added,merged,dropped,partial:!!run.partial,note:String(run.note||'').slice(0,500)});
+  await chrome.storage.local.set({[LIB_KEY]:[...map.values()],[HIST_KEY]:hist.slice(0,MAX_HIST)});
+  return {total:map.size,added,merged,dropped};
+}
+async function readLibrary(){const v=await chrome.storage.local.get([LIB_KEY,HIST_KEY]);return {records:v[LIB_KEY]||[],history:v[HIST_KEY]||[]};}
+chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  if (!sender.tab || !message || typeof message !== 'object') return;
+  if (['DELTA_LIBRARY_ADD','DELTA_LIBRARY_GET','DELTA_LIBRARY_CLEAR'].includes(message.type)) {
+    const run = async()=>{
+      if(message.type==='DELTA_LIBRARY_ADD')return await appendLibrary(message.records,message.run||{});
+      if(message.type==='DELTA_LIBRARY_GET')return await readLibrary();
+      if(message.confirm==='APAGAR_BIBLIOTECA_LOCAL') {await chrome.storage.local.remove([LIB_KEY,HIST_KEY]);return {cleared:true};}
+      throw Error('Confirmação inválida');
+    };
+    (message.type==='DELTA_LIBRARY_GET'?run():enqueue(run)).then(reply).catch(e=>reply({error:String(e.message||e)}));
+    return true;
+  }
+  if (message.type === 'DELTA_FETCH') {
+    if (!allowedFetch(message.url)) { reply({error:'Endereço de API não permitido'}); return; }
+    (async () => {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 45000);
+      try {
+        const res = await fetch(message.url, {credentials:'omit',redirect:'follow',signal:ctrl.signal});
+        const body = await res.text();
+        if (body.length > 8_000_000) throw new Error('Resposta excessiva: reduza os registros por lote');
+        reply({status:res.status,text:body,retryAfter:res.headers.get('Retry-After') || ''});
+      } catch (e) { reply({error:String(e?.message || e)}); }
+      finally { clearTimeout(timeout); }
+    })();
+    return true;
+  }
+  if (message.type === 'DELTA_PDF') {
+    if (!allowedPdf(message.url)) { reply({error:'PDF não permitido'}); return; }
+    const safe = String(message.identifier || 'paper').replace(/[^A-Za-z0-9_.-]/g,'_').slice(0,80);
+    chrome.downloads.download({url:message.url,filename:`DELTA-Research-Collector/arxiv/${safe}.pdf`,conflictAction:'uniquify',saveAs:false},id => {
+      const err=chrome.runtime.lastError?.message;
+      reply(err? {error:err} : {downloadId:id});
+    });
+    return true;
+  }
+});
+chrome.action.onClicked.addListener(tab => {
+  if (!tab?.id) return;
+  chrome.tabs.sendMessage(tab.id,{type:'DELTA_TOGGLE'}, () => {
+    if (chrome.runtime.lastError) chrome.tabs.create({url:'https://arxiv.org/search/advanced'});
+  });
+});

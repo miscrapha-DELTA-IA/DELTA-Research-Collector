@@ -1,0 +1,66 @@
+{
+  "manifest_version": 3,
+  "name": "DELTA Research Collector",
+  "short_name": "DELTA Collector",
+  "version": "0.3.0",
+  "description": "Pesquisa científica: 10 fontes, deduplicação por DOI, biblioteca local, histórico, RIS/BibTeX/CSV/JSON.",
+  "minimum_chrome_version": "109",
+  "permissions": [
+    "downloads",
+    "storage",
+    "unlimitedStorage"
+  ],
+  "host_permissions": [
+    "https://arxiv.org/*",
+    "https://www.ebi.ac.uk/europepmc/webservices/rest/*",
+    "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/*",
+    "https://api.openalex.org/works*",
+    "https://api.crossref.org/works*",
+    "https://api.semanticscholar.org/graph/v1/paper/search*",
+    "https://doaj.org/api/search/articles/*",
+    "https://search.scielo.org/*",
+    "https://api.biorxiv.org/details/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Abrir DELTA Research Collector"
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://arxiv.org/search/*",
+        "https://europepmc.org/search*",
+        "https://www.europepmc.org/search*",
+        "https://pubmed.ncbi.nlm.nih.gov/*",
+        "https://openalex.org/works*",
+        "https://www.openalex.org/works*",
+        "https://search.crossref.org/*",
+        "https://crossref.org/search*",
+        "https://www.crossref.org/search*",
+        "https://semanticscholar.org/search*",
+        "https://www.semanticscholar.org/search*",
+        "https://search.scielo.org/*",
+        "https://scielo.org/*/search/*",
+        "https://www.scielo.org/*/search/*",
+        "https://doaj.org/*",
+        "https://www.doaj.org/*",
+        "https://biorxiv.org/*",
+        "https://www.biorxiv.org/*",
+        "https://medrxiv.org/*",
+        "https://www.medrxiv.org/*"
+      ],
+      "js": [
+        "collector-core.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>DELTA browser tests</title>
+<script src="../collector-core.js"></script>
+<body><output id="test-result">RUNNING</output>
+<script>
+try {
+ const c=window.DELTA_CORE;
+ const pubmed=`<?xml version="1.0"?><PubmedArticleSet><PubmedArticle>
+ <MedlineCitation><PMID>123456</PMID><Article><Journal><JournalIssue><PubDate><Year>2024</Year><Month>05</Month><Day>07</Day></PubDate></JournalIssue><Title>Journal of Research</Title></Journal><ArticleTitle>Expression &amp; Transcripts</ArticleTitle><Abstract><AbstractText Label="BACKGROUND">First <i>gene</i> study.</AbstractText><AbstractText Label="RESULTS">Other findings.</AbstractText></Abstract><AuthorList><Author><LastName>Silva</LastName><ForeName>Maria</ForeName></Author></AuthorList></Article></MedlineCitation>
+ <PubmedData><ArticleIdList><ArticleId IdType="doi">10.1200/abc</ArticleId></ArticleIdList></PubmedData>
+ </PubmedArticle></PubmedArticleSet>`;
+ const parsed=c.parsePubmedXml(pubmed);
+ if(parsed.length!==1||parsed[0].identifier!=='123456'||parsed[0].abstract!=='BACKGROUND: First gene study. RESULTS: Other findings.'||parsed[0].doi!=='10.1200/abc'||parsed[0].authors[0]!=='Maria Silva')throw Error(JSON.stringify(parsed));
+ const arxiv=`<li class="arxiv-result"><p class="title">Gene Editing</p><p class="list-title"><a href="https://arxiv.org/abs/2511.12345">arXiv:2511.12345</a></p><p class="authors"><a>Maria Silva</a></p><span class="abstract-full">Good research △ Less</span></li>`;
+ if(c.parseArxiv(`<ul>${arxiv}</ul>`).records.length!==1)throw Error('arxiv parser');
+ document.getElementById('test-result').textContent='PASS';
+} catch(e) {document.getElementById('test-result').textContent='FAIL '+e.stack;}
+</script></body></html>
