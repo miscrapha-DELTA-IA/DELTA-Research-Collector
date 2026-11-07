@@ -1,9 +1,9 @@
 "use strict";
 const assert=require("node:assert/strict");
 require("../collector-core.js");
-require("../capes-import.js");
 const core=globalThis.DELTA_CORE;
-const parse=globalThis.DELTA_CAPES.parseNativeExport;
+const parse=core.parseCapesNativeExport;
+assert.equal(typeof parse,"function","CAPES parser must be available from the core alone");
 assert.equal(core.detectProvider("https://www.periodicos.capes.gov.br/"),"capes");
 assert.equal(core.detectProvider("https://periodicos.capes.gov.br/index.php"),"capes");
 assert.equal(core.detectProvider("https://www-periodicos-capes-gov-br.ez1.periodicos.capes.gov.br/index.php"),"capes");
@@ -31,3 +31,9 @@ assert.throws(()=>parse("TY  - JOUR\nTI  - Incomplete","x.ris"),/nenhum registro
 assert.throws(()=>parse("Not a bib","x.txt"),/RIS ou BibTeX/);
 assert.throws(()=>parse("@article{x,title={A}}","x.bib"),/nenhum registro/);
 console.log("PASS: CAPES native RIS/BibTeX imports.");
+
+const fs=require("node:fs");
+const manifest=JSON.parse(fs.readFileSync(require("node:path").join(__dirname,"..","manifest.json"),"utf8"));
+assert.ok(manifest.content_scripts[0].js.includes("collector-core.js"));
+assert.ok(!manifest.content_scripts[0].js.includes("capes-import.js"),"No separate CAPES content script dependency");
+assert.match(fs.readFileSync(require("node:path").join(__dirname,"..","content.js"),"utf8"),/core\.parseCapesNativeExport/, "UI must read the core parser");
