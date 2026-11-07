@@ -24,6 +24,8 @@
   </p>
 </div>
 
+**Interfaz v0.5.1:** panel simplificado: consulta, límite, total informado y exportación a primera vista. Importación del IEEE, biblioteca, matriz de revisión y opciones avanzadas en secciones desplegables. Los métodos de recuperación no cambian.
+
 > [!IMPORTANT]
 > **Proyecto experimental.** DELTA ayuda a recopilar y organizar referencias, pero no garantiza que una exportación reproduzca completamente los filtros, la clasificación o el total de resultados de cada plataforma. Verifique la cobertura antes de publicar cifras en una investigación.
 
