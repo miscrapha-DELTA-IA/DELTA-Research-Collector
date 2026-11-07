@@ -8,7 +8,7 @@
 
 Extensão experimental de código aberto para **Opera GX, Chrome e Edge** (Manifest V3).
 
-[![Versão](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector) [![Licença GPL--3.0](https://img.shields.io/badge/license-GPL--3.0--or--later-green)](LICENSE) [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-lightgrey)](manifest.json)
+[![Versão](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector) [![Licença GPL--3.0](https://img.shields.io/badge/license-GPL--3.0--or--later-green)](LICENSE) [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-lightgrey)](manifest.json)
 
 [English](README.en.md) · [Instalação](#instalação) · [Bases compatíveis](#bases-compatíveis) · [Limitações](#limitações-científicas)
 
@@ -43,15 +43,26 @@ Extensão experimental de código aberto para **Opera GX, Chrome e Edge** (Manif
 
 ## Busca reprodutível e recuperabilidade
 
-A versão 0.4.0 abre o painel na **aba ativa**, inclusive no IEEE Xplore, sem redirecionar ao arXiv. Cada exportação produz um arquivo adicional `*_estrategia.json` com expressão, parâmetros, filtros codificados na URL, data, limite e modo de obtenção. Dados CSV/JSON incluem status de acesso, fonte da evidência e URL aberta quando disponível.
+A versão 0.4.1 abre o painel na **aba ativa**, inclusive no IEEE Xplore, sem redirecionar ao arXiv. Cada exportação produz um arquivo adicional `*_estrategia.json` com expressão, parâmetros, filtros codificados na URL, data, limite e modo de obtenção. Dados CSV/JSON incluem status de acesso, fonte da evidência e URL aberta quando disponível.
 
 O IEEE Xplore é **experimental**: sem chave da API oficial, somente os resultados visíveis são capturados e o conjunto é identificado como parcial. A consulta opcional via DOI ao OpenAlex identifica cópias abertas de até 20 artigos por operação. A ausência de OA não confirma paywall. Filtros que o site não codifica na URL exigem auditoria manual.
+
+### IEEE Xplore — recuperar os resultados completos
+
+O botão rápido do IEEE captura **apenas a página visível** (normalmente 25 artigos), mesmo que a busca mostre centenas de resultados. Para obter o conjunto de uma pesquisa de 512 resultados:
+
+1. Na **mesma pesquisa do IEEE Xplore**, use a função oficial **Export Results → CSV** (disponível para conjuntos de até 2.000 registros).
+2. Abra a engrenagem do DELTA Collector e selecione o arquivo em **IEEE Xplore — importar todos os resultados**.
+3. Informe opcionalmente o total retornado pela busca (exemplo: **512**) para conferir a cobertura.
+4. Escolha CSV, RIS, BibTeX ou JSON. A extensão importa localmente o arquivo, preserva o contexto da busca em \`*_estrategia.json\` e pode adicionar os registros à biblioteca.
+
+O DELTA registra a diferença entre registros importados e total esperado. Sem informar o total, a **completude não é verificada**. A importação não acessa artigos restritos nem ignora paywalls.
 
 ## Instalação
 
 **Opera GX** (procedimento semelhante em Chrome e Edge):
 
-1. Baixe o [ZIP da v0.4.0 gerado pelo GitHub Actions](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector/actions/workflows/build-installable.yml) (abra a execução mais recente e baixe o artefato instalável; é necessário entrar no GitHub) e extraia tudo em uma pasta permanente.
+1. Baixe o [ZIP da v0.4.1 gerado pelo GitHub Actions](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector/actions/workflows/build-installable.yml) (abra a execução mais recente e baixe o artefato instalável; é necessário entrar no GitHub) e extraia tudo em uma pasta permanente.
 2. Abra `opera://extensions` e ative **Modo do desenvolvedor**.
 3. Clique em **Carregar sem compactação** e escolha a pasta que contém `manifest.json` diretamente.
 4. Se já instalou uma versão anterior, desative-a para não exibir botões duplicados.
