@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.2] — 2026-11-07
+
+- Keep “Importar e exportar no formato escolhido” as a visible IEEE action; its click opens the native CSV picker directly.
+- Remove the persistent file picker panel and redundant IEEE-only result-total input; reuse the main coverage field.
+- Add contextual page/pagination information for IEEE Xplore and arXiv.
+- Specify the official DELTA logo as the extension toolbar icon and generate refreshed PNG assets.
+- Preserve the collector adapters, bibliography formats, and visual screening matrix.
+
 ## [0.5.1] — 2026-11-07
 
 - Redesigned the in-page collector with a quieter, light interface and a clear primary export workflow.
