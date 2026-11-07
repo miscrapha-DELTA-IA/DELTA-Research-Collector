@@ -6,13 +6,13 @@ assert.equal(typeof core.parseCapesPage,"function");
 assert.equal(typeof core.findCapesNextPage,"function");
 function paper(i){
   const title="Clinical prediction and feedback study "+i;
-  const article={textContent:title,getAttribute:key=>key==="href"?"/index.php/acervo/detalhe-"+i+".html":null,querySelector:()=>null};
+  const article={tagName:"A",className:"",textContent:title,getAttribute:key=>key==="href"?"/index.php/acervo/detalhe-"+i+".html":null,querySelector:()=>null};
   return {
     id:"",
     textContent:title+" 2025 DOI: 10.1234/CAPES."+i,
     getAttribute:()=>null,closest:()=>null,
     querySelector:selector=>selector.includes("data-testid*='title'")?article:null,
-    querySelectorAll:selector=>selector.includes('doi.org')?[]:[],
+    querySelectorAll:selector=>selector.includes("[data-testid*='title'")?[article]:[],
   };
 }
 const data=Array.from({length:100},(_,i)=>paper(i+1));
