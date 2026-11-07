@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.5.7. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.5.8. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -354,7 +354,7 @@
     const context=strategy();
     const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.5.7",
+      generator: "DELTA Research Collector 0.5.8",
       source: provider, original_search_url: context.url, exported_at: now.toISOString(),
       search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
       retrieval_mode:retrievalMode,collector_note:collectorNote,
@@ -404,124 +404,210 @@
       const text=format==='html'?globalThis.DELTA_REVIEW.reviewHtml(data.records,{
         source:'biblioteca_local', exported_at:new Date().toISOString(), retrieval_mode:'local_merged_library',
         audit:globalThis.DELTA_REVIEW.auditCoverage({source:'biblioteca_local',collected:data.records.length})
-      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.7',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.8',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
       saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
       $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
   }
 
-  // CAPES page-UI collection (experimental). The collector never makes restricted
-  // downloads or calls undocumented APIs. It observes the user's own rendered search.
-  async function collectCapes(max,rows,seen) {
+  // CAPES one-click crawler navigates the user's own search tab page by page.
+  // Browser navigation renders the genuine CAPES UI, even when HTML fetches
+  // return only a JavaScript shell. Progress is stored per-tab in extension-only
+  // chrome.storage.session; it is not shared with the site or persisted on disk.
+  const capesPageNumber=href=>{
+    const n=Number(new URL(href).searchParams.get("page")||"1");
+    return Number.isSafeInteger(n)&&n>=1?n:1;
+  };
+  async function collectCapes(quick=false){
+    if(state.running)return;
     const initial=new URL(location.href);
-    if(!/\/acervo\/buscador\.html$/.test(initial.pathname)||!initial.searchParams.has("q"))
-      throw Error("CAPES: abra uma busca por assunto com resultados carregados antes de coletar.");
-    if(typeof core.parseCapesPage!=="function"||typeof core.findCapesNextPage!=="function")
-      throw Error("CAPES: módulo de coleta não disponível. Atualize a extensão e recarregue esta página.");
-    capesOriginalSearchUrl=initial.href;
-    const started=Date.now();
-    let doc=document, pageHref=initial.href, pageCount=0, total=null, pageFailure="", haveMore=false, previousSignature="";
-    const maxPages=Math.max(1,Math.min(100,Math.ceil(max/10)+10));
-    const collectVisible = (snapshot) => {
-      for(const row of snapshot.records){
-        if(rows.length>=max)break;
-        const key=row.doi?"doi:"+core.normalizeDoi(row.doi):
-          "id:"+String(row.identifier||row.title).toLowerCase();
-        if(!seen.has(key)){seen.add(key);rows.push(row);}
-      }
-    };
-    for(let step=0;step<maxPages&&!state.cancel;step++){
-      // The first page may still be rendering when the user clicks.
-      let snapshot=core.parseCapesPage(doc,pageHref);
-      if(!snapshot.records.length&&pageCount===0){
-        for(let attempt=0;attempt<15&&!state.cancel;attempt++){
-          await sleep(400);
-          snapshot=core.parseCapesPage(doc,pageHref);
-          if(snapshot.records.length)break;
-        }
-      }
-      if(!snapshot.records.length){
-        pageFailure="Página "+(pageCount+1)+": nenhum resultado bibliográfico reconhecido no HTML; estrutura do Portal não validada.";
-        haveMore=true;break;
-      }
-      const signature=snapshot.records.map(x=>x.identifier).join("|");
-      if(pageCount&&signature===previousSignature){
-        pageFailure="Paginação não avançou: identificadores repetidos. A coleta foi interrompida para evitar resultados falsos.";
-        haveMore=true;break;
-      }
-      previousSignature=signature;
-      total=Number.isSafeInteger(snapshot.total)&&snapshot.total>0?snapshot.total:total;
-      pageCount++;
-      collectVisible(snapshot);
-      updateProgress(rows.length,max,"Portal CAPES · "+pageCount+" páginas");
-      if(total!==null&&rows.length>=total){haveMore=false;break;}
-      if(rows.length>=max){haveMore=true;break;}
-      if(Date.now()-started>180000){pageFailure="Tempo máximo da coleta atingido (3 minutos).";haveMore=true;break;}
-      const next=core.findCapesNextPage(doc);
-      if(!next){
-        haveMore=total!==null&&rows.length<total;
-        if(haveMore)pageFailure="Não foi localizado o controle de próxima página para recuperar os "+(total-rows.length)+" registros restantes.";
-        break;
-      }
-      haveMore=true;
-      // Where pagination has real URLs, fetch only within the current CAPES origin.
-      // A client-side-only page is not assumed to contain SSR metadata.
-      const href=next.getAttribute?.("href")||"";
-      let target=null;
-      try{if(href&&href!=="#"&&!/^javascript:/i.test(href))target=new URL(href,pageHref);}catch{}
-      if(target&&target.origin===initial.origin&&target.href!==pageHref){
-        try{
-          const controller=new AbortController();
-          const timeout=setTimeout(()=>controller.abort(),12000);
-          let response;
-          try{response=await fetch(target.href,{credentials:"same-origin",signal:controller.signal});}
-          finally{clearTimeout(timeout);}
-          if(!response.ok)throw Error("HTTP "+response.status);
-          const html=await response.text();
-          const parsed=new DOMParser().parseFromString(html,"text/html");
-          const sample=core.parseCapesPage(parsed,target.href);
-          if(!sample.records.length)throw Error("o HTML retornado não contém resultados reconhecíveis");
-          if(sample.records.map(x=>x.identifier).join("|")===previousSignature)
-            throw Error("os identificadores da próxima página repetiram os atuais");
-          doc=parsed;pageHref=target.href;
-          await sleep(550);
-          continue;
-        }catch(error){
-          pageFailure="A próxima página exige navegação que não pôde ser verificada automaticamente ("+error.message+").";
-          break;
-        }
-      }
-      if(target&&target.origin!==initial.origin){
-        pageFailure="Paginação apontou para outro domínio: coleta interrompida por segurança.";
-        break;
-      }
-      // JavaScript SPA pagination: use the portal's own visible next-page control.
-      if(doc!==document){
-        pageFailure="Página seguinte sem URL verificável após paginação por HTML.";break;
-      }
-      try{next.click();}
-      catch(error){pageFailure="Erro ao avançar página: "+error.message;break;}
-      let advanced=false;
-      for(let attempt=0;attempt<30&&!state.cancel;attempt++){
-        await sleep(400);
-        const latest=core.parseCapesPage(document,location.href);
-        if(latest.records.length&&latest.records.map(x=>x.identifier).join("|")!==previousSignature){
-          advanced=true;doc=document;pageHref=location.href;break;
-        }
-      }
-      if(!advanced&&!state.cancel){
-        pageFailure="O Portal não atualizou os resultados após avançar (12 segundos).";
-        break;
-      }
-      await sleep(550);
+    if(!/\/acervo\/buscador\.html$/.test(initial.pathname)||!initial.searchParams.has("q")){
+      setPanel(true);setStatus("CAPES: abra uma busca por assunto para iniciar a coleta.",true);return;
     }
-    const incomplete=state.cancel||!!pageFailure||haveMore||(total!==null&&rows.length<total);
-    const note="CAPES: "+rows.length+" registros únicos de "+pageCount+" páginas; total indicado na interface: "+
-      (total??"não identificado")+"; método: leitura da busca no navegador e paginação visível."+
-      (pageFailure?" Limitação: "+pageFailure:"")+
-      " A equivalência da busca, dos filtros e dos metadados não foi validada independentemente. Nenhum PDF restrito acessado.";
-    if(!rows.length)throw Error(pageFailure||"CAPES: nenhum cartão bibliográfico reconhecido. Não foram fabricados registros.");
-    return {truncated:incomplete,retrieval_mode:"capes_visible_search_pages_experimental",reported_total:total,note};
+    if(typeof core.capesPageUrl!=="function"||typeof core.capesSearchKey!=="function"||
+       typeof core.parseCapesPage!=="function"){
+      setPanel(true);setStatus("CAPES: atualize os arquivos da extensão e recarregue a página.",true);return;
+    }
+    state.cancel=false;setPanel(true);setBusy(true);
+    try{
+      const current=core.parseCapesPage(document,initial.href);
+      if(!current.records.length)throw Error("Nenhum cartão bibliográfico reconhecido na página atual.");
+      const pageSize=Number(initial.searchParams.get("num")||"30");
+      if(![30,50,100].includes(pageSize))
+        throw Error("Tamanho de página CAPES desconhecido; selecione 30, 50 ou 100 itens no Portal.");
+      const max=Number($("max").value);
+      if(!Number.isSafeInteger(max)||max<1||max>2000)throw Error("Limite inválido.");
+      const field=$("expected-total").value.trim();
+      const manualTotal=field?Number(field):null;
+      const reportedTotal=current.total??manualTotal;
+      const run={
+        version:1,startedAt:Date.now(),
+        originalUrl:initial.href,
+        baseUrl:core.capesPageUrl(initial.href,1),
+        searchKey:core.capesSearchKey(initial.href),
+        startingPage:capesPageNumber(initial.href),
+        currentPage:1,pageSize,max,
+        format:quick?"csv":$("format").value,
+        saveLocal:$("local").checked,
+        verifyOA:!quick&&$("oa").checked,
+        expectedTotal:reportedTotal,records:[],pages:[],warnings:[]
+      };
+      capesOriginalSearchUrl=run.baseUrl;
+      await message({type:"DELTA_CAPES_RUN_SAVE",run});
+      setStatus("CAPES: iniciando pela página 1; a aba navegará automaticamente pelas páginas da busca.");
+      if(run.startingPage!==1){
+        location.assign(run.baseUrl);
+        return;
+      }
+      await processCapesPage(run);
+    }catch(error){
+      setStatus("CAPES: "+error.message,true);
+      setBusy(false);
+    }
+  }
+  async function processCapesPage(run){
+    capesOriginalSearchUrl=run.baseUrl;
+    setPanel(true);setBusy(true);
+    $("max").value=String(run.max);
+    $("format").value=run.format;
+    $("local").checked=run.saveLocal;
+    if(Number.isSafeInteger(run.expectedTotal)&&run.expectedTotal>0)
+      $("expected-total").value=String(run.expectedTotal);
+    $("progress").max=run.expectedTotal||run.max;
+    $("progress").value=run.records.length;
+    let snapshot=null;
+    for(let attempt=0;attempt<18&&!state.cancel;attempt++){
+      snapshot=core.parseCapesPage(document,location.href);
+      if(snapshot.records.length)break;
+      setStatus("CAPES: carregando página "+run.currentPage+"…");
+      await sleep(500);
+    }
+    if(state.cancel){
+      await finishCapesRun(run,"Cancelada pelo usuário.");return;
+    }
+    if(!snapshot?.records?.length){
+      await finishCapesRun(run,"Página "+run.currentPage+" sem cartões bibliográficos reconhecidos.");return;
+    }
+    const currentTotal=Number.isSafeInteger(snapshot.total)&&snapshot.total>0?snapshot.total:null;
+    if(run.expectedTotal===null&&currentTotal!==null)run.expectedTotal=currentTotal;
+    else if(currentTotal!==null&&run.expectedTotal!==null&&currentTotal!==run.expectedTotal)
+      run.warnings.push("Total do Portal variou entre páginas ("+run.expectedTotal+" e "+currentTotal+").");
+    const uniques=new Set(run.records.map(r=>r.doi?"doi:"+core.normalizeDoi(r.doi):
+      "id:"+String(r.identifier||r.title).toLowerCase()));
+    let added=0;
+    for(const row of snapshot.records){
+      if(run.records.length>=run.max)break;
+      const key=row.doi?"doi:"+core.normalizeDoi(row.doi):
+        "id:"+String(row.identifier||row.title).toLowerCase();
+      if(uniques.has(key))continue;
+      uniques.add(key);run.records.push(row);added++;
+    }
+    run.pages.push({page:run.currentPage,cards_visible:snapshot.candidates,
+      records_parsed:snapshot.records.length,unique_added:added,reported_total:currentTotal});
+    const expectedThisPage=run.expectedTotal===null?null:
+      Math.min(run.pageSize,Math.max(0,run.expectedTotal-(run.currentPage-1)*run.pageSize));
+    if(snapshot.records.length<snapshot.candidates||expectedThisPage!==null&&
+       snapshot.candidates<expectedThisPage)
+      run.warnings.push("Página "+run.currentPage+": "+snapshot.records.length+
+        " registros reconhecidos em "+snapshot.candidates+" cartões; esperados até "+expectedThisPage+".");
+    const pageCap=Math.max(1,Math.min(200,Math.ceil(run.max/run.pageSize)));
+    const maxFromTotal=run.expectedTotal===null?pageCap:
+      Math.min(pageCap,Math.max(1,Math.ceil(run.expectedTotal/run.pageSize)));
+    $("progress").max=run.expectedTotal||run.max;
+    $("progress").value=Math.min(run.records.length,run.expectedTotal||run.max);
+    setStatus("CAPES: página "+run.currentPage+"/"+maxFromTotal+
+      " · "+run.records.length+" registros únicos recuperados.");
+    const reachedCap=run.records.length>=run.max||run.currentPage>=pageCap;
+    const reachedEnd=run.expectedTotal!==null?
+      run.currentPage>=Math.ceil(run.expectedTotal/run.pageSize):
+      snapshot.candidates<run.pageSize;
+    if(reachedCap||reachedEnd){
+      await finishCapesRun(run,null);return;
+    }
+    if(run.currentPage>=200){
+      await finishCapesRun(run,"Limite de 200 páginas por operação.");return;
+    }
+    run.currentPage++;
+    try{
+      await message({type:"DELTA_CAPES_RUN_SAVE",run});
+      await sleep(400);
+      if(state.cancel){await finishCapesRun(run,"Cancelada pelo usuário.");return;}
+      location.assign(core.capesPageUrl(run.baseUrl,run.currentPage));
+    }catch(error){
+      await finishCapesRun(run,"Falha ao carregar página "+run.currentPage+": "+error.message);
+    }
+  }
+  async function finishCapesRun(run,failure){
+    if(failure)run.warnings.push(failure);
+    const rows=run.records;
+    const expected=run.expectedTotal;
+    const incomplete=Boolean(state.cancel||run.warnings.length||
+      expected!==null&&rows.length<expected||
+      expected===null&&rows.length>=run.max);
+    const note="CAPES: "+rows.length+" registros únicos das páginas "+
+      run.pages.map(p=>p.page).join(", ")+"; total informado pela interface: "+
+      (expected??"desconhecido")+"; início original na página "+run.startingPage+
+      ". Coleta por navegação em aba com filtros preservados."+
+      (run.warnings.length?" Avisos: "+run.warnings.join(" | "):"")+
+      " Comparação bibliográfica e metadados completos ainda não validados.";
+    try{
+      if(!rows.length){
+        setStatus("CAPES: "+(failure||"nenhum registro recuperado"),true);
+        return;
+      }
+      if(run.verifyOA&&!state.cancel){
+        const result=await checkOpenCopies(rows);
+        run.warnings.push("Verificação OA: "+result.checked+" DOIs; "+result.errors+" falhas.");
+      }
+      const records=exportRows(rows,run.format,run.max,state.cancel,incomplete,note,
+        "capes_browser_navigation_paged_experimental",{
+          reported_total:expected,
+          original_open_url:run.originalUrl,
+          start_page:run.startingPage,page_size:run.pageSize,
+          traversed_pages:run.pages,
+          expected_search_total:expected,
+          page_warnings:run.warnings,
+          metadata_quality:"DOIs and titles from CAPES result cards; authors may be only first listed; abstracts, dates and journal titles may be absent; completeness unverified"
+        });
+      let saved="";
+      if(run.saveLocal){
+        const ctx=strategy();
+        try{
+          const r=await message({type:"DELTA_LIBRARY_ADD",records,
+            run:{source:"capes",url:ctx.url,query:ctx.query,parameters:ctx.parameters,
+              retrieval_mode:"capes_browser_navigation_paged_experimental",partial:incomplete,note}});
+          saved=" · biblioteca: +"+r.added+" novos, "+r.merged+" combinados";
+          refreshLibrary().catch(()=>{});
+        }catch(error){saved=" · biblioteca não atualizada: "+error.message;}
+      }
+      setStatus("CAPES: "+rows.length+"/"+(expected??"?")+
+        " registros; "+run.pages.length+" páginas percorridas"+
+        (incomplete?" · PARCIAL":" · contagem atingida; fidelidade não verificada")+saved+".",incomplete);
+    }catch(error){
+      setStatus("CAPES: falha ao exportar: "+error.message,true);
+    }finally{
+      try{await message({type:"DELTA_CAPES_RUN_CLEAR"});}catch{}
+      setBusy(false);
+    }
+  }
+  async function resumeCapesRun(){
+    if(provider!=="capes"||state.running)return;
+    try{
+      const reply=await message({type:"DELTA_CAPES_RUN_GET"});
+      const run=reply.run;
+      if(!run)return;
+      if(!core.capesSearchKey||core.capesSearchKey(location.href)!==run.searchKey||
+         capesPageNumber(location.href)!==run.currentPage){
+        setPanel(true);
+        setStatus("CAPES: coleta interrompida por mudança de busca ou de página. Clique em Coletar busca para reiniciar.",true);
+        return;
+      }
+      await processCapesPage(run);
+    }catch(error){
+      setPanel(true);
+      setStatus("CAPES: não foi possível retomar a coleta: "+error.message,true);
+      setBusy(false);
+    }
   }
   async function collectIEEE(max,rows,seen) {
     const found=core.parseIEEEPage(document);
@@ -764,7 +850,8 @@
   async function run(quick = false) {
     if (state.running) return;
     state.cancel = false;
-    const max = provider==="capes" ? Number($("max").value) : quick ? 200 : Number($("max").value);
+    if(provider==="capes"){await collectCapes(quick);return;}
+    const max = quick ? 200 : Number($("max").value);
     const format = quick ? "csv" : $("format").value;
     const withPdfs = !quick && provider === "arxiv" && $("pdf").checked;
     const rows = [], seen = new Set();
@@ -774,7 +861,7 @@
     setStatus("Iniciando coleta…");
     try {
       const collector = {
-        capes:collectCapes,ieee:collectIEEE,arxiv: collectArxiv, europepmc: collectEuropePmc, pubmed: collectPubmed,
+        ieee:collectIEEE,arxiv: collectArxiv, europepmc: collectEuropePmc, pubmed: collectPubmed,
         openalex: collectOpenAlex, crossref: collectCrossref, semanticscholar: collectSemanticScholar,
         scielo:collectSciELO,doaj:collectDoaj,biorxiv:collectPreprints,medrxiv:collectPreprints
       }[provider];
@@ -897,7 +984,7 @@
     };
     const parsed=core.parseCapesPage(document,location.href);
     const out={
-      generator:"DELTA Research Collector CAPES scoped diagnostic 0.5.7",
+      generator:"DELTA Research Collector CAPES scoped diagnostic 0.5.8",
       captured_at:new Date().toISOString(),source:"capes",
       sanitized_search_url:search.url,
       visible_cards:document.querySelectorAll(".result-busca").length,
@@ -974,4 +1061,5 @@
   chrome.runtime.onMessage.addListener(message => {
     if (message?.type === "DELTA_TOGGLE") setPanel($("panel").hidden);
   });
+  if(provider==="capes") void resumeCapesRun();
 })();

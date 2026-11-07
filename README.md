@@ -95,7 +95,7 @@ Além de CSV, RIS, BibTeX e JSON, a extensão agora exporta uma **matriz interat
 
 [Fluxo detalhado, interpretações e limitações](docs/REVIEW_MATRIX.md)
 
-## Portal de Periódicos CAPES — coleta no navegador (experimental, v0.5.7)
+## Portal de Periódicos CAPES — coleta por navegação de páginas (experimental, v0.5.8)
 
 **Fluxo principal:** abra uma busca por assunto no Portal CAPES e clique em **Coletar busca**. O DELTA tenta ler os cartões de resultados visíveis, avançar pela paginação disponível na interface e reunir os registros até o limite selecionado (500 por padrão no Portal). A exportação pode ser CSV, RIS, BibTeX, JSON ou matriz de triagem HTML. A biblioteca local e a auditoria são opcionais.
 
@@ -111,6 +111,14 @@ Exemplo de auditoria: **456 resultados exibidos** no Portal não significam 456 
 - A pesquisa pode ser realizada com seu acesso institucional normal (CAFe, IP ou VPN). A extensão não solicita credenciais, não contorna paywalls nem baixa texto completo protegido.
 
 **Correção v0.5.7:** um diagnóstico da busca real identificou 100 cartões `.result-busca` na primeira página e uma paginação `.br-pagination` com total de 456 itens. O adaptador agora reconhece esses componentes, extrai títulos por elementos internos, identifica o total exibido e tenta seguir as setas sem rótulo. O diagnóstico passou a observar apenas cartões bibliográficos e paginação, sem coletar elementos do cabeçalho institucional. **A recuperação de 456/456 ainda depende de teste real no navegador.**
+
+**Correção v0.5.8 — retomar da primeira página:** o DELTA agora inicia a coleta pela **página 1**, mesmo quando o usuário abre a busca na última página. A extensão percorre as páginas **na aba atual** usando os parâmetros nativos `page=` e `num=`, mantém a pesquisa e filtros e armazena o progresso apenas na memória de sessão da extensão (`chrome.storage.session`), separada por aba. Ao completar ou interromper, gera um arquivo de estratégia com as páginas efetivamente recuperadas, total relatado, quantidade única e avisos sobre páginas ou campos faltantes.
+
+**Exemplo de auditoria real:** um CSV da v0.5.7 foi gerado na **página 4**, `num=30`, com filtro `publishyear=2019:2026`: o Portal exibiu **118 resultados** e o DELTA exportou **28**, exatamente a quantidade esperada da última página (91–118). Isso não é uma busca de 456 resultados: esse número pertence à consulta anterior, com outro conjunto de filtros. A v0.5.8 tenta percorrer as **quatro páginas da busca filtrada** (ou cinco páginas com 100 itens na busca sem esse filtro, se os parâmetros e o total forem confirmados).
+
+**Metadados incompletos:** no CSV de teste, título, DOI, ano e link estavam preenchidos, porém **resumo, data e periódico estavam vazios**, e a autoria pode representar somente parte dos autores. A paginação corrigida não resolve automaticamente a ausência de campos; esses dados precisam de validação específica antes de uso científico.
+
+**Validação:** o fluxo de navegação por URL e retomada foi coberto por testes sintéticos, mas **a coleta integral no Opera ainda não está comprovada**. Se a página não avançar, recusar navegação, mudar os filtros ou deixar de apresentar cartões reconhecíveis, o DELTA exportará apenas os registros recuperados e identificará o resultado como parcial. Fechar a aba ou reiniciar o navegador pode interromper a coleta.
 
 **Independente e não homologada pela CAPES.** Preserve a URL, os parâmetros e o relatório de cobertura e confira uma amostra contra os resultados originais antes de usar os dados em estudo científico.
 
