@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.4.0. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.4.1. GPL-3.0-or-later. */
 (() => {
   "use strict";
   const fields = ["source", "identifier", "title", "authors", "year", "date", "doi", "abstract", "article_url", "pdf_url", "journal", "search_url", "search_query", "search_parameters", "access_status", "access_evidence", "access_url", "access_checked_at", "collected_at", "sources"];
@@ -442,6 +442,65 @@
     if(r.open_access?.is_oa===false)return {status:'no_open_copy_found',url:'',evidence:'OpenAlex: nao encontrou copia OA; paywall nao comprovado'};
     return {status:'unknown',url:'',evidence:'OpenAlex: inconclusivo'};
   }
+
+  // Parse the official IEEE Xplore CSV locally, retaining bibliographic metadata.
+  function parseIEEEExportCsv(input) {
+    if(typeof input!=='string'||input.length>20_000_000)throw Error('IEEE CSV: arquivo ausente ou maior que 20 MB.');
+    const text=input.replace(/^\uFEFF/,'');
+    function rowsFor(sep) {
+      const rows=[];let row=[],field='',quoted=false;
+      for(let i=0;i<text.length;i++){
+        const ch=text[i];
+        if(ch==='"'){if(quoted&&text[i+1]==='"'){field+='"';i++;}else quoted=!quoted;}
+        else if(!quoted&&(ch===sep||ch==='\n'||ch==='\r')){
+          if(ch===sep){row.push(field);field='';continue;}
+          row.push(field);field='';
+          if(row.some(v=>v.trim()))rows.push(row);
+          row=[];if(ch==='\r'&&text[i+1]==='\n')i++;
+          if(rows.length>25000)throw Error('IEEE CSV: excede 25.000 linhas.');
+        }else field+=ch;
+      }
+      if(quoted)throw Error('IEEE CSV: campo entre aspas não fechado.');
+      row.push(field);if(row.some(v=>v.trim()))rows.push(row);
+      return rows;
+    }
+    const norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+    const recognized=new Set(['documenttitle','title','articletitle','authors','author','authornames','doi','publicationyear','year','publicationtitle','publicationdate','abstract','articleid','articlenumber','documentnumber','ieeedocumentnumber','documenturl','linktodocument','documentlink','link','url','accesstype','pdfurl','pdflink','dateaddedtoieeexplore']);
+    let best=null;
+    for(const sep of [',',';','\t']){
+      const rows=rowsFor(sep);
+      for(let i=0;i<Math.min(25,rows.length);i++){
+        const keys=rows[i].map(norm),score=keys.filter(k=>recognized.has(k)).length;
+        if((keys.includes('documenttitle')||keys.includes('title')||keys.includes('articletitle'))&&score>=2&&(!best||score>best.score))best={rows,header:i,keys,score,separator:sep};
+      }
+    }
+    if(!best)throw Error('IEEE CSV: cabeçalho bibliográfico não identificado. Use Export Results → CSV no IEEE Xplore.');
+    const at=(row,...names)=>{for(const key of names){const idx=best.keys.indexOf(norm(key));if(idx>=0&&row[idx])return clean(row[idx]);}return '';};
+    const result=[],seen=new Set();let skipped=0;
+    for(let i=best.header+1;i<best.rows.length;i++){
+      const row=best.rows[i],title=at(row,'Document Title','Title','Article Title');
+      if(!title){skipped++;continue;}
+      const doi=normalizeDoi(at(row,'DOI'));
+      const rawUrl=at(row,'Document URL','Link to Document','Document Link','Link','URL');
+      const idFromUrl=(rawUrl.match(/ieeexplore\.ieee\.org\/document\/(\d+)/i)||[])[1];
+      const identifier=idFromUrl||at(row,'Article Number','IEEE Document Number','Document Number','Article ID')||doi||'csv:'+norm(title).slice(0,100)+'-'+at(row,'Publication Year','Year');
+      const key=doi?'doi:'+doi:'id:'+identifier;
+      if(seen.has(key)){skipped++;continue;}seen.add(key);
+      const accessText=at(row,'Access Type').toLowerCase();
+      const access_status=/open access|ephemera|\boa\b/.test(accessText)?'open':/locked|subscription|restricted/.test(accessText)?'publisher_restricted':'unknown';
+      let article_url=idFromUrl?'https://ieeexplore.ieee.org/document/'+idFromUrl:'';
+      if(!article_url&&/^https:\/\//i.test(rawUrl)){try{const u=new URL(rawUrl);if(['ieeexplore.ieee.org','doi.org','dx.doi.org'].includes(u.hostname))article_url=u.href;}catch{}}
+      if(!article_url&&doi)article_url='https://doi.org/'+doi;
+      result.push({source:'IEEE Xplore',identifier,title,authors:at(row,'Authors','Author Names','Author').split(/;\s*|\s+AND\s+/i).map(clean).filter(Boolean),
+        year:at(row,'Publication Year','Year'),date:at(row,'Publication Date','Publication Date Online','Date Added to IEEE Xplore'),doi,
+        abstract:at(row,'Abstract'),article_url,pdf_url:'',journal:at(row,'Publication Title'),access_status,
+        access_evidence:access_status==='unknown'?'IEEE CSV: acesso não verificado':'IEEE CSV: campo Access Type',
+        access_url:access_status==='open'?article_url:''});
+    }
+    if(!result.length)throw Error('IEEE CSV: nenhum artigo válido encontrado.');
+    return {records:result,imported:result.length,skipped,header_row:best.header+1,delimiter:best.separator};
+  }
+
   function parseIEEEPage(doc) {
     const nodes=[],seen=new Set();
     for(const selector of ['.List-results-items .List-results-item','.List-results-item','xpl-search-result','article.search-result'])
@@ -490,5 +549,5 @@
     buildOpenAlexUrl, parseOpenAlex, uninvertAbstract,
     buildCrossrefUrl, parseCrossref, buildSemanticScholarUrl, parseSemanticScholar,
     normalizeDoi, workKey, mergeRecord, deduplicateRecords, toRis,
-    buildDoajUrl,parseDoaj,buildSciELOUrl,parseSciELO,buildPreprintUrl,parsePreprint,matchesTerm,searchContext,accessInfo,parseOpenAlexAccess,parseIEEEPage };
+    buildDoajUrl,parseDoaj,buildSciELOUrl,parseSciELO,buildPreprintUrl,parsePreprint,matchesTerm,searchContext,accessInfo,parseOpenAlexAccess,parseIEEEPage,parseIEEEExportCsv };
 })();
