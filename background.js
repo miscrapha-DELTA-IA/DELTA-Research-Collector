@@ -21,6 +21,34 @@ function allowedPdf(uri) {
   return u.protocol === 'https:' && u.hostname === 'arxiv.org' && /^\/pdf\/[A-Za-z0-9.\-_/]+(?:\.pdf)?$/.test(u.pathname);
 }
 
+// Session-only CAPES collection state, isolated by Chrome tab ID.
+// Does not persist across browser restarts; contains bibliographic metadata only.
+const CAPES_SESSION_PREFIX="delta_capes_run_tab_";
+function capesSessionSender(sender){
+  try{
+    const u=new URL(sender.url||sender.tab?.url||"");
+    const host=u.hostname;
+    const trusted=host==="periodicos.capes.gov.br"||
+      host==="www.periodicos.capes.gov.br"||
+      /^www-periodicos-capes-gov-br\.ez\d+\.periodicos\.capes\.gov\.br$/.test(host);
+    return trusted&&u.protocol==="https:"&&/\/acervo\/buscador\.html$/.test(u.pathname);
+  }catch{return false;}
+}
+function capesRunValid(run,sender){
+  if(!run||typeof run!=="object"||!Array.isArray(run.records)||run.records.length>2000||
+    !Array.isArray(run.pages)||run.pages.length>200||
+    !Number.isSafeInteger(run.currentPage)||run.currentPage<1||run.currentPage>200||
+    !Number.isSafeInteger(run.max)||run.max<1||run.max>2000||
+    !Number.isFinite(run.startedAt)||Date.now()-run.startedAt>1200000||
+    Date.now()-run.startedAt< -60000)return false;
+  try{
+    const source=new URL(sender.url||sender.tab?.url);
+    const base=new URL(run.baseUrl);
+    return base.origin===source.origin&&
+      /\/acervo\/buscador\.html$/.test(base.pathname)&&base.searchParams.has("q")&&
+      JSON.stringify(run).length<6_000_000;
+  }catch{return false;}
+}
 const LIB_KEY='delta_v03_library', HIST_KEY='delta_v03_history';
 const MAX_ITEMS=12000, MAX_HIST=80;
 const norm = (v)=>String(v||'').trim();
@@ -62,6 +90,30 @@ async function appendLibrary(records,run){
 async function readLibrary(){const v=await chrome.storage.local.get([LIB_KEY,HIST_KEY]);return {records:v[LIB_KEY]||[],history:v[HIST_KEY]||[]};}
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (!sender.tab || !message || typeof message !== 'object') return;
+  if (["DELTA_CAPES_RUN_GET","DELTA_CAPES_RUN_SAVE","DELTA_CAPES_RUN_CLEAR"].includes(message.type)) {
+    if(!capesSessionSender(sender)){reply({error:"CAPES: origem da sessão não autorizada."});return;}
+    const key=CAPES_SESSION_PREFIX+sender.tab.id;
+    (async()=>{
+      if(message.type==="DELTA_CAPES_RUN_CLEAR"){
+        await chrome.storage.session.remove(key);
+        return {cleared:true};
+      }
+      if(message.type==="DELTA_CAPES_RUN_SAVE"){
+        if(!capesRunValid(message.run,sender))throw Error("CAPES: sessão inválida ou expirada.");
+        await chrome.storage.session.set({[key]:message.run});
+        return {saved:true};
+      }
+      const data=await chrome.storage.session.get(key);
+      const run=data[key];
+      if(!run)return {run:null};
+      if(!capesRunValid(run,sender)){
+        await chrome.storage.session.remove(key);
+        return {run:null,expired:true};
+      }
+      return {run};
+    })().then(reply).catch(e=>reply({error:String(e.message||e)}));
+    return true;
+  }
   if (['DELTA_LIBRARY_ADD','DELTA_LIBRARY_GET','DELTA_LIBRARY_CLEAR'].includes(message.type)) {
     const run = async()=>{
       if(message.type==='DELTA_LIBRARY_ADD')return await appendLibrary(message.records,message.run||{});
