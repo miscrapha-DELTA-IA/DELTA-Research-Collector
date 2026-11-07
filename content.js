@@ -12,43 +12,106 @@
   const shadow = shell.attachShadow({ mode: "closed" });
   const style = document.createElement("style");
   style.textContent = `
-    * { box-sizing: border-box; }
-    .delta-shell { font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif; color:#eaf3fa; pointer-events: auto; }
-    .delta-controls { display:flex; justify-content:flex-end; gap:8px; align-items:center; }
-    .primary, .config, .act, .ghost { cursor:pointer; font:inherit; transition:transform .16s ease, box-shadow .16s ease, background .16s ease; }
-    .primary:hover, .config:hover, .act:hover { transform:translateY(-2px); }
-    .primary { display:flex;gap:9px;align-items:center;border:1px solid #82edf5;border-radius:17px;padding:14px 18px;background:linear-gradient(120deg,#087d95,#16425f 65%,#2e315a);box-shadow:0 10px 32px #001b2b70, inset 0 1px #ffffff33;color:#fff;font-weight:800;letter-spacing:.03em;font-size:13px; }
-    .primary:disabled, .act:disabled { opacity:.64;cursor:wait;transform:none; }
-    .config { width:47px;height:47px;border-radius:15px;border:1px solid #607b95;background:#11283f;color:#d9edfa;font-size:21px;box-shadow:0 8px 22px #001b2b44; }
-    .panel { width:min(395px, calc(100vw - 24px)); max-height:calc(100vh - 110px);overflow-y:auto; margin-bottom:12px;padding:20px;background:linear-gradient(145deg,#13253a,#0a1627 70%);border:1px solid #3b5872;border-radius:22px;box-shadow:0 14px 55px #001019ad, inset 0 1px #ffffff17; }
-    .panel[hidden] { display:none; }
-    .top { display:flex;gap:10px;align-items:center;justify-content:space-between; }
-    .eyebrow { font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;color:#68d7e0;margin:0 0 5px; }
-    h2 { font-size:20px;line-height:1.25;margin:0 0 3px;color:#f7feff;font-weight:800; }
-    .sub { font-size:12px;color:#9db0c6;margin:0 0 17px; }
-    label:not(.check) { display:block;font-size:12px;color:#c5d9e7;font-weight:650;margin:13px 0 7px; }
-    select { width:100%;height:42px;border:1px solid #38536d;border-radius:12px;background:#1a324a;color:white;font:inherit;font-size:13px;padding:0 11px; }
-    .two { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
-    .check { display:flex;align-items:start;gap:9px;font-size:12px;color:#cddde8;line-height:1.45;margin-top:14px; }
-    .check input { accent-color:#4de1d5;width:16px;height:16px;flex:none;margin:1px 0; }
-    .note { font-size:11px;color:#92a9be;margin:11px 0 16px;line-height:1.45; }
-    .buttons { display:flex;gap:9px; }
-    .act { flex:1;padding:12px 10px;border:none;border-radius:12px;background:#53e7d8;color:#071f2a;font-weight:800;font-size:13px; }
-    .ghost { padding:11px 13px;border:1px solid #4e687e;color:#e3ecf6;border-radius:12px;background:#182e43;font-size:12px; }
-    .status { padding:12px 0 0;min-height:32px;font-size:12px;line-height:1.45;color:#b5d2e2;overflow-wrap:anywhere; }
-    .status.err { color:#ffabb3; }
-    progress { width:100%;height:7px;appearance:none;border:none;border-radius:9px;overflow:hidden;display:block;margin-top:8px;background:#243d54; }
-    progress::-webkit-progress-bar { background:#243d54; }
-    progress::-webkit-progress-value { background:#4de1d5; }
-    .special { border:1px solid #2f5265;background:#10283b;padding:11px;border-radius:12px;margin-top:12px; }
-    .special[hidden] {display:none;} .special label {margin-top:4px!important;}
-    input[type="text"], input[type="date"] {width:100%;min-height:40px;background:#1a324a;color:#fff;border:1px solid #38536d;border-radius:9px;padding:8px;font:inherit;font-size:12px;}
-    .mini {border:1px solid #37566e;background:#132f47;color:#eaf3fa;border-radius:10px;padding:10px;cursor:pointer;font-weight:650;font-size:12px;}
-    .minirow {display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}.history {max-height:130px;overflow:auto;line-height:1.45;font-size:11px;color:#bcd3e3;white-space:pre-line;}
-    .foot { font-size:10px;color:#8195a9;border-top:1px solid #2b435b;padding-top:12px;margin-top:13px; }
-    @media(max-width:560px) { .panel{padding:17px;} .primary{padding:12px;font-size:12px;} .delta-shell{margin-right:-7px;margin-bottom:-9px;} }
-    @media(prefers-reduced-motion:reduce) { * { transition:none!important; } }
-  `;
+  * {box-sizing:border-box}
+  .delta-shell {font-family:system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:auto;color:#233b47}
+  .delta-controls {display:flex;justify-content:flex-end;align-items:center;gap:8px}
+  button,select,input {font-family:inherit}
+  .primary,.config,.act,.ghost,.mini {cursor:pointer}
+  .primary:disabled,.act:disabled {opacity:.65;cursor:wait}
+  .primary {display:flex;align-items:center;gap:8px}
+  .panel[hidden],.special[hidden] {display:none!important}
+  .top {display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .eyebrow {font-weight:700}
+  h2 {line-height:1.3;margin:0}
+  .two {display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  label:not(.check) {display:block}
+  .check {display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.5}
+  .check input {flex:none;width:16px;height:16px;margin:1px 0}
+  .note {font-size:11px;line-height:1.5}
+  .buttons {display:flex;gap:9px}
+  .act {flex:1}
+  .status {overflow-wrap:anywhere}
+  progress {display:block;width:100%;appearance:none;border:0;border-radius:10px;overflow:hidden}
+  .special {border:1px solid #dde8ec;border-radius:10px;padding:12px;margin-top:12px}
+  .special label {margin-top:5px}
+  .minirow {display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .history {max-height:150px;overflow:auto;font-size:11px;white-space:pre-line}
+
+
+  #delta-panel {width:min(420px,calc(100vw - 24px));max-height:calc(100dvh - 100px);overflow:auto;padding:0;color:#1c3341;
+    background:#f8fafb;border:1px solid #dbe4e9;border-radius:15px;box-shadow:0 10px 35px #0a29372b;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;}
+  #delta-panel .top {padding:17px 19px 13px;align-items:center}
+  #delta-panel .eyebrow {color:#6b808b;font-size:10px;letter-spacing:.07em;margin:0 0 3px}
+  #delta-panel h2 {font-size:18px;letter-spacing:-.025em;color:#163442;font-weight:700}
+  #delta-panel .sub {padding:0 19px 15px;margin:0;color:#197583;font-size:12px;font-weight:600}
+  #delta-panel .delta-main {padding:17px 19px 19px;background:#fff;border-top:1px solid #e7edef}
+  #delta-panel .delta-kicker {font-size:10px;color:#70818c;font-weight:750;letter-spacing:.09em}
+  #delta-panel #delta-query-preview {padding:7px 0 0;min-height:0;color:#253b46;font-weight:650;font-size:13px}
+  #delta-panel #delta-filter-preview {padding:5px 0 12px;min-height:0;color:#72828c;font-size:11px}
+  #delta-panel .two {display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  #delta-panel label:not(.check) {display:block;color:#4b6070;font-size:11px;font-weight:650;margin:10px 0 6px}
+  #delta-panel .two label {margin-top:0}
+  #delta-panel select,#delta-panel input[type="text"],#delta-panel input[type="date"],#delta-panel input[type="number"],#delta-panel input[type="file"] {
+    font:inherit;font-size:12px;color:#243c48;background:#fff;border:1px solid #ccd8dd;border-radius:9px;min-height:39px;height:auto;padding:8px 10px;width:100%;min-width:0;}
+  #delta-panel #delta-coverage-options {margin:13px 0 6px;padding:11px 12px 9px;background:#f7f9fa;border:1px solid #e2e9ed;border-radius:10px}
+  #delta-panel #delta-coverage-options > strong,#delta-panel #delta-coverage-options > .note {display:none}
+  #delta-panel #delta-coverage-options label {margin:0 0 6px}
+  #delta-panel #delta-expected-total {background:#fff;color:#1c3341;border:1px solid #cbd9df;min-height:36px}
+  #delta-panel #delta-audit-result {font-size:11px;color:#65808e;margin:7px 0 0;padding:0;min-height:0}
+  #delta-panel #delta-local-label {margin:12px 0;color:#526673;font-size:11px}
+  #delta-panel .check input {accent-color:#117b82}
+  #delta-panel .buttons {margin:0;gap:8px}
+  #delta-panel .act {background:#116b73;border-radius:9px;color:white;font-size:13px;font-weight:700;padding:12px;border:none}
+  #delta-panel .act:hover {background:#0d5c65;transform:none}
+  #delta-panel .ghost {background:#fff;color:#526b79;border:1px solid #d6e1e6;border-radius:9px;padding:9px 12px}
+  #delta-panel .ghost:hover {transform:none}
+  #delta-panel #delta-status {font-size:11px;color:#5c737f;line-height:1.5;padding:8px 0 0;min-height:0}
+  #delta-panel #delta-status.err {color:#9e4554}
+  #delta-panel progress {height:5px;margin:12px 0 0;background:#e6ecef}
+  #delta-panel progress::-webkit-progress-bar {background:#e6ecef}
+  #delta-panel progress::-webkit-progress-value {background:#158a8d}
+  #delta-panel #delta-note {font-size:11px;line-height:1.55;color:#6d808a;margin:11px 0 0}
+  #delta-panel .delta-fold {border-top:1px solid #e5ebee;margin:0;background:#f8fafb}
+  #delta-panel [hidden] {display:none!important}
+  #delta-panel .delta-fold > summary {padding:15px 19px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:8px;align-items:center}
+  #delta-panel .delta-fold > summary::-webkit-details-marker {display:none}
+  #delta-panel .delta-fold > summary:after {content:"+";color:#718692;font-size:18px}
+  #delta-panel .delta-fold[open] > summary:after {content:"−"}
+  #delta-panel .delta-fold summary span {font-size:13px;font-weight:700;color:#28404e}
+  #delta-panel .delta-fold summary small {display:block;font-size:10px;font-weight:400;color:#72848e;margin-top:3px}
+  #delta-panel .delta-fold > .special,#delta-panel .delta-fold > .delta-advanced {border:1px solid #e2e9ee;border-radius:10px;background:#fff;padding:13px;margin:0 13px 13px}
+  #delta-panel .special {border-color:#e2e9ee;background:#fff;color:#344c59}
+  #delta-panel .special .note {color:#667f8a}
+  #delta-panel #delta-ieee-import > strong,#delta-panel #delta-library .top > strong {display:none}
+  #delta-panel #delta-library .top {padding:0}
+  #delta-panel .mini {border:1px solid #d0e1e6;background:#f5f9fa;color:#27616b;border-radius:9px;font-size:11px;padding:9px 11px}
+  #delta-panel .mini:hover {background:#eaf3f5}
+  #delta-panel .history {color:#637b86;line-height:1.6}
+  #delta-panel .delta-danger {border:0;background:transparent;margin-top:12px}
+  #delta-panel .delta-danger > summary {padding:6px 0}
+  #delta-panel .delta-danger summary span {font-size:11px;color:#647b87}
+  #delta-panel .delta-danger .minirow {padding-top:5px}
+  #delta-panel #delta-clear {color:#a04452}
+  #delta-panel .delta-advanced {display:flex;flex-direction:column;gap:8px}
+  #delta-panel .delta-advanced .special {margin:0}
+  #delta-panel .delta-advanced .check {font-size:11px;line-height:1.5;margin:7px 0}
+  #delta-panel .foot {padding:12px 19px 15px;margin:0;border-top:1px solid #e5ebee;color:#8a99a2;text-align:center;font-size:10px}
+  #delta-panel select:focus-visible,#delta-panel input:focus-visible,#delta-panel button:focus-visible,#delta-panel summary:focus-visible {
+    outline:2px solid #0d8590;outline-offset:2px}
+  .delta-controls {gap:7px}
+  .delta-controls .primary {background:#143a49;color:white;border:1px solid #91adb6;box-shadow:0 3px 13px #173a4a28;border-radius:11px;
+    font-size:12px;font-weight:650;letter-spacing:0;padding:11px 14px}
+  .delta-controls .primary:hover {transform:none;box-shadow:0 5px 16px #173a4a32}
+  .delta-controls .config {background:#fff;color:#315565;border:1px solid #cbd9df;box-shadow:0 3px 10px #16384b16;border-radius:11px;width:41px;height:41px;font-size:23px}
+  .delta-controls .config:hover {transform:none}
+  @media(max-width:560px) {
+    #delta-panel {width:min(420px,calc(100vw - 16px));max-height:calc(100dvh - 75px)}
+    #delta-panel .top {padding:15px}
+    #delta-panel .delta-main {padding:15px}
+    #delta-panel .delta-fold > summary {padding:14px 15px}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+`;
   shadow.append(style);
   const view = document.createElement("div");
   view.className = "delta-shell";
@@ -153,9 +216,8 @@
   $("config").textContent = "⋯";
   $("config").setAttribute("aria-label","Abrir ou fechar configurações do DELTA");
   $("config").title = "Abrir painel";
-  const calmStyle = document.createElement("style");
-  calmStyle.textContent = "\n  #delta-panel {width:min(420px,calc(100vw - 24px));max-height:calc(100dvh - 100px);overflow:auto;padding:0;color:#1c3341;\n    background:#f8fafb;border:1px solid #dbe4e9;border-radius:15px;box-shadow:0 10px 35px #0a29372b;font-family:system-ui,-apple-system,\"Segoe UI\",sans-serif;}\n  #delta-panel .top {padding:17px 19px 13px;align-items:center}\n  #delta-panel .eyebrow {color:#6b808b;font-size:10px;letter-spacing:.07em;margin:0 0 3px}\n  #delta-panel h2 {font-size:18px;letter-spacing:-.025em;color:#163442;font-weight:700}\n  #delta-panel .sub {padding:0 19px 15px;margin:0;color:#197583;font-size:12px;font-weight:600}\n  #delta-panel .delta-main {padding:17px 19px 19px;background:#fff;border-top:1px solid #e7edef}\n  #delta-panel .delta-kicker {font-size:10px;color:#70818c;font-weight:750;letter-spacing:.09em}\n  #delta-panel #delta-query-preview {padding:7px 0 0;min-height:0;color:#253b46;font-weight:650;font-size:13px}\n  #delta-panel #delta-filter-preview {padding:5px 0 12px;min-height:0;color:#72828c;font-size:11px}\n  #delta-panel .two {display:grid;grid-template-columns:1fr 1fr;gap:12px}\n  #delta-panel label:not(.check) {display:block;color:#4b6070;font-size:11px;font-weight:650;margin:10px 0 6px}\n  #delta-panel .two label {margin-top:0}\n  #delta-panel select,#delta-panel input[type=\"text\"],#delta-panel input[type=\"date\"],#delta-panel input[type=\"number\"],#delta-panel input[type=\"file\"] {\n    font:inherit;font-size:12px;color:#243c48;background:#fff;border:1px solid #ccd8dd;border-radius:9px;min-height:39px;height:auto;padding:8px 10px;width:100%;min-width:0;}\n  #delta-panel #delta-coverage-options {margin:13px 0 6px;padding:11px 12px 9px;background:#f7f9fa;border:1px solid #e2e9ed;border-radius:10px}\n  #delta-panel #delta-coverage-options > strong,#delta-panel #delta-coverage-options > .note {display:none}\n  #delta-panel #delta-coverage-options label {margin:0 0 6px}\n  #delta-panel #delta-expected-total {background:#fff;color:#1c3341;border:1px solid #cbd9df;min-height:36px}\n  #delta-panel #delta-audit-result {font-size:11px;color:#65808e;margin:7px 0 0;padding:0;min-height:0}\n  #delta-panel #delta-local-label {margin:12px 0;color:#526673;font-size:11px}\n  #delta-panel .check input {accent-color:#117b82}\n  #delta-panel .buttons {margin:0;gap:8px}\n  #delta-panel .act {background:#116b73;border-radius:9px;color:white;font-size:13px;font-weight:700;padding:12px;border:none}\n  #delta-panel .act:hover {background:#0d5c65;transform:none}\n  #delta-panel .ghost {background:#fff;color:#526b79;border:1px solid #d6e1e6;border-radius:9px;padding:9px 12px}\n  #delta-panel .ghost:hover {transform:none}\n  #delta-panel #delta-status {font-size:11px;color:#5c737f;line-height:1.5;padding:8px 0 0;min-height:0}\n  #delta-panel #delta-status.err {color:#9e4554}\n  #delta-panel progress {height:5px;margin:12px 0 0;background:#e6ecef}\n  #delta-panel progress::-webkit-progress-bar {background:#e6ecef}\n  #delta-panel progress::-webkit-progress-value {background:#158a8d}\n  #delta-panel #delta-note {font-size:11px;line-height:1.55;color:#6d808a;margin:11px 0 0}\n  #delta-panel .delta-fold {border-top:1px solid #e5ebee;margin:0;background:#f8fafb}\n  #delta-panel [hidden] {display:none!important}\n  #delta-panel .delta-fold > summary {padding:15px 19px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:8px;align-items:center}\n  #delta-panel .delta-fold > summary::-webkit-details-marker {display:none}\n  #delta-panel .delta-fold > summary:after {content:\"+\";color:#718692;font-size:18px}\n  #delta-panel .delta-fold[open] > summary:after {content:\"−\"}\n  #delta-panel .delta-fold summary span {font-size:13px;font-weight:700;color:#28404e}\n  #delta-panel .delta-fold summary small {display:block;font-size:10px;font-weight:400;color:#72848e;margin-top:3px}\n  #delta-panel .delta-fold > .special,#delta-panel .delta-fold > .delta-advanced {border:1px solid #e2e9ee;border-radius:10px;background:#fff;padding:13px;margin:0 13px 13px}\n  #delta-panel .special {border-color:#e2e9ee;background:#fff;color:#344c59}\n  #delta-panel .special .note {color:#667f8a}\n  #delta-panel #delta-ieee-import > strong,#delta-panel #delta-library .top > strong {display:none}\n  #delta-panel #delta-library .top {padding:0}\n  #delta-panel .mini {border:1px solid #d0e1e6;background:#f5f9fa;color:#27616b;border-radius:9px;font-size:11px;padding:9px 11px}\n  #delta-panel .mini:hover {background:#eaf3f5}\n  #delta-panel .history {color:#637b86;line-height:1.6}\n  #delta-panel .delta-danger {border:0;background:transparent;margin-top:12px}\n  #delta-panel .delta-danger > summary {padding:6px 0}\n  #delta-panel .delta-danger summary span {font-size:11px;color:#647b87}\n  #delta-panel .delta-danger .minirow {padding-top:5px}\n  #delta-panel #delta-clear {color:#a04452}\n  #delta-panel .delta-advanced {display:flex;flex-direction:column;gap:8px}\n  #delta-panel .delta-advanced .special {margin:0}\n  #delta-panel .delta-advanced .check {font-size:11px;line-height:1.5;margin:7px 0}\n  #delta-panel .foot {padding:12px 19px 15px;margin:0;border-top:1px solid #e5ebee;color:#8a99a2;text-align:center;font-size:10px}\n  #delta-panel select:focus-visible,#delta-panel input:focus-visible,#delta-panel button:focus-visible,#delta-panel summary:focus-visible {\n    outline:2px solid #0d8590;outline-offset:2px}\n  .delta-controls {gap:7px}\n  .delta-controls .primary {background:#143a49;color:white;border:1px solid #91adb6;box-shadow:0 3px 13px #173a4a28;border-radius:11px;\n    font-size:12px;font-weight:650;letter-spacing:0;padding:11px 14px}\n  .delta-controls .primary:hover {transform:none;box-shadow:0 5px 16px #173a4a32}\n  .delta-controls .config {background:#fff;color:#315565;border:1px solid #cbd9df;box-shadow:0 3px 10px #16384b16;border-radius:11px;width:41px;height:41px;font-size:23px}\n  .delta-controls .config:hover {transform:none}\n  @media(max-width:560px) {\n    #delta-panel {width:min(420px,calc(100vw - 16px));max-height:calc(100dvh - 75px)}\n    #delta-panel .top {padding:15px}\n    #delta-panel .delta-main {padding:15px}\n    #delta-panel .delta-fold > summary {padding:14px 15px}\n  }\n  @media(prefers-reduced-motion:reduce){*{transition:none!important}}\n";
-  shadow.append(calmStyle);
+  $("config").setAttribute("aria-expanded","false");
+
 
   const providers = {
     ieee: ["IEEE Xplore", "Apenas cartões visíveis nesta página. Exportação parcial; sem paginação automática."],
@@ -197,7 +259,7 @@
     $("status").classList.toggle("err", error);
     $("one-click").title = text;
   }
-  function setPanel(visible) { $("panel").hidden = !visible; }
+  function setPanel(visible) { $("panel").hidden = !visible; $("config").setAttribute("aria-expanded", String(Boolean(visible))); }
   function setBusy(busy) {
     state.running = busy;
     $("start").disabled = busy;
