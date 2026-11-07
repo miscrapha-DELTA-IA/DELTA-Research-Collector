@@ -95,7 +95,7 @@ Além de CSV, RIS, BibTeX e JSON, a extensão agora exporta uma **matriz interat
 
 [Fluxo detalhado, interpretações e limitações](docs/REVIEW_MATRIX.md)
 
-## Portal de Periódicos CAPES — coleta no navegador (experimental, v0.5.6)
+## Portal de Periódicos CAPES — coleta no navegador (experimental, v0.5.7)
 
 **Fluxo principal:** abra uma busca por assunto no Portal CAPES e clique em **Coletar busca**. O DELTA tenta ler os cartões de resultados visíveis, avançar pela paginação disponível na interface e reunir os registros até o limite selecionado (500 por padrão no Portal). A exportação pode ser CSV, RIS, BibTeX, JSON ou matriz de triagem HTML. A biblioteca local e a auditoria são opcionais.
 
@@ -109,6 +109,8 @@ Exemplo de auditoria: **456 resultados exibidos** no Portal não significam 456 
 - Em caso de falha, use **Diagnóstico da página CAPES** para gerar um JSON com seletores e elementos visíveis (confira seu conteúdo antes de compartilhar). Esse diagnóstico não copia cookies ou senhas.
 - A alternativa de **importar RIS/BibTeX oficial** continua disponível. Tipos Unicode como `@Revisão` foram corrigidos na v0.5.5.
 - A pesquisa pode ser realizada com seu acesso institucional normal (CAFe, IP ou VPN). A extensão não solicita credenciais, não contorna paywalls nem baixa texto completo protegido.
+
+**Correção v0.5.7:** um diagnóstico da busca real identificou 100 cartões `.result-busca` na primeira página e uma paginação `.br-pagination` com total de 456 itens. O adaptador agora reconhece esses componentes, extrai títulos por elementos internos, identifica o total exibido e tenta seguir as setas sem rótulo. O diagnóstico passou a observar apenas cartões bibliográficos e paginação, sem coletar elementos do cabeçalho institucional. **A recuperação de 456/456 ainda depende de teste real no navegador.**
 
 **Independente e não homologada pela CAPES.** Preserve a URL, os parâmetros e o relatório de cobertura e confira uma amostra contra os resultados originais antes de usar os dados em estudo científico.
 

@@ -731,6 +731,8 @@
   function parseCapesPage(doc, origin="https://www.periodicos.capes.gov.br/") {
     const root=doc.querySelector?.("main,[role='main'],#content,.main-content")||doc.body||doc;
     const selectors=[
+      ".result-busca",
+      "[class*='result-busca' i]",
       "[data-testid*='result' i]",
       "[class*='search-result' i]",
       "[class*='result-item' i]",
@@ -764,15 +766,40 @@
     for(const node of candidates){
       const txt=clean(node.textContent);
       if(!txt||txt.length>12000)continue;
-      const titleNode=node.querySelector?.(
-        "[data-testid*='title' i], [class*='article-title' i], [class*='result-title' i], [class*='item-title' i], [class*='titulo' i], h3 a, h4 a, h2 a, h3, h4, h2"
-      );
-      let title=clean(titleNode?.textContent);
-      if(!title){
-        const anchor=Array.from(node.querySelectorAll?.("a[href]")||[])
-          .find(a=>clean(a.textContent).length>=12&&!/^(acesse|disponibilidade|pdf|exportar|saiba mais|details?|plumx)/i.test(clean(a.textContent)));
-        title=clean(anchor?.textContent);
+      // CAPES 2026 (verified diagnostic): .result-busca contains a numbered
+      // bibliographic title but no h2/h3 or article wrapper. Select a title
+      // *within each card*, never infer it from the entire card text (which
+      // also includes authors, abstract and action labels).
+      const titleSelector=[
+        "[data-testid*='title' i]", "[class*='article-title' i]",
+        "[class*='result-title' i]", "[class*='item-title' i]",
+        "[class*='titulo' i]", "[class*='title' i]",
+        "[itemprop='name']", "[role='heading']",
+        "h2", "h3", "h4", "a[href]", "strong", "b", "p", "span", "div"
+      ].join(",");
+      const possibleTitleNodes=Array.from(node.querySelectorAll?.(titleSelector)||[]);
+      let bestTitle=null, bestScore=-1;
+      for(const el of possibleTitleNodes){
+        const raw=clean(el.textContent);
+        const titleCandidate=raw.replace(/^\d{1,6}\.\s+/, "");
+        if(titleCandidate.length<12||titleCandidate.length>450)continue;
+        if(/^(?:artigo|revis[aã]o|carta|editorial|resumo|acesso aberto|revisado por pares|baixar|acessar|exportar|detalhes|doi|autores?|t[oó]picos?)(?:\s|$)/i.test(titleCandidate))continue;
+        const type=String(el.tagName||"").toUpperCase();
+        const cls=String(el.className||"");
+        const isTitle=/titul|title|heading|nome.*artigo/i.test(cls)||
+          el.getAttribute?.("itemprop")==="name"||el.getAttribute?.("role")==="heading"||
+          /^H[2-4]$/.test(type);
+        const isNumbered=/^\d{1,6}\.\s+\S/.test(raw);
+        const isLink=type==="A"&&Boolean(el.getAttribute?.("href"));
+        if(["P","SPAN","DIV"].includes(type)&&!isNumbered&&!isTitle)continue;
+        const score=(isTitle?8:0)+(isNumbered?6:0)+(isLink?3:0)+
+          (titleCandidate.length>=25&&titleCandidate.length<=250?1:0);
+        if(score>bestScore){bestTitle=el;bestScore=score;}
       }
+      const titleNode=bestTitle;
+      const title=clean(bestTitle?.textContent).replace(/^\d{1,6}\.\s+/, "");
+      // No title means no record. Never substitute a whole-card text guess.
+      
       if(title.length<12||title.length>450||/^(?:\d+\s+)?(?:resultados?|filtros?|buscar|exportar|ordenar|selecionar tudo|próxim[ao] página)$/i.test(title))continue;
       const doiMatch=txt.match(/\b10\.\d{4,9}\/[^\s<>"'()[\]]+/i);
       const linkDoi=Array.from(node.querySelectorAll?.('a[href*="doi.org/"]')||[])[0]?.getAttribute?.("href")||"";
@@ -803,7 +830,15 @@
     const text=clean(root.textContent).slice(0,12000);
     const matches=[...text.matchAll(/\b(\d{1,3}(?:[.\s]\d{3})+|\d+)\s+resultados\b/gi)]
       .map(x=>Number(x[1].replace(/[.\s]/g,""))).filter(x=>Number.isSafeInteger(x)&&x>=0);
-    const total=matches.length?Math.max(...matches):null;
+    // Actual CAPES 2026 pagination: "1–100 de 456 itens".
+    const pagers=Array.from(doc.querySelectorAll?.("nav.br-pagination,.pagination-information")||[]);
+    for(const pager of pagers){
+      const label=clean(pager.textContent);
+      const m=label.match(/\b\d+\s*[-–—]\s*\d+\s+de\s+([\d.\s]+)\s+itens\b/i);
+      if(m)matches.push(Number(m[1].replace(/[.\s]/g,"")));
+    }
+    const total=matches.filter(x=>Number.isSafeInteger(x)&&x>=0).length
+      ?Math.max(...matches.filter(x=>Number.isSafeInteger(x)&&x>=0)):null;
     return {records,total,candidates:candidates.length,mode:"visible_page_dom"};
   }
   function findCapesNextPage(doc) {
@@ -826,6 +861,34 @@
         const next=controls.find(el=>usable(el)&&clean(el.textContent)===String(current+1));
         if(next)return next;
       }
+    }
+    // CAPES GovBR br-pagination: the right arrow has an icon but no text.
+    // Scope selection to the pagination widget, never arbitrary page buttons.
+    for(const scope of scopes){
+      const arrowGroup=scope.querySelector?.(".pagination-arrows");
+      if(!arrowGroup)continue;
+      const arrows=Array.from(arrowGroup.querySelectorAll?.("button,a,[role='button']")||[]);
+      const enabled=el=>!el.disabled&&!el.hasAttribute?.("disabled")&&
+        el.getAttribute?.("aria-disabled")!=="true"&&
+        !/\bdisabled\b/i.test(String(el.className||""));
+      // First try direction-bearing aria-labels/icons.
+      const right=arrows.find(el=>enabled(el)&&
+        /next|pr[oó]xim|avanç|angle-right|chevron-right|arrow-right/i.test(
+          [el.getAttribute?.("aria-label"),el.getAttribute?.("title"),
+           String(el.className||""),el.querySelector?.("i,svg")?.className?.baseVal||
+           el.querySelector?.("i,svg")?.getAttribute?.("class")].join(" ")));
+      if(right)return right;
+      // Two controls in the verified .pagination-arrows group: left and right.
+      // If there are more controls, do not guess.
+      if(arrows.length===2&&enabled(arrows[1]))return arrows[1];
+    }
+    // The "Página 1 2 3 4 5" control may be a <select>.
+    for(const scope of scopes){
+      const chooser=scope.querySelector?.(".pagination-go-to-page select");
+      if(!chooser||chooser.disabled)continue;
+      const opts=Array.from(chooser.options||[]);
+      const idx=opts.findIndex(o=>o.selected);
+      if(idx>=0&&idx<opts.length-1)return chooser;
     }
     return null;
   }
