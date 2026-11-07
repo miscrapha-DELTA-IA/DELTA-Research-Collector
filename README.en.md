@@ -8,7 +8,7 @@
 
 An experimental open-source extension for **Opera GX, Chrome and Edge** (Manifest V3).
 
-[![Version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector) [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector) [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)](LICENSE)
 
 [Português](README.md) · [Installation](#installation) · [Supported sources](#supported-sources)
 
@@ -43,7 +43,7 @@ An experimental open-source extension for **Opera GX, Chrome and Edge** (Manifes
 
 ## Installation
 
-1. Download the [installable ZIP v0.4.0](dist/DELTA-Research-Collector_v0.4.0_INSTALAR.zip) and extract it to a permanent folder.
+1. Download the [installable ZIP v0.4.1](dist/DELTA-Research-Collector_v0.4.1_INSTALAR.zip) and extract it to a permanent folder.
 2. In Opera GX, navigate to `opera://extensions`, enable **Developer mode**, then choose **Load unpacked**. For Chrome/Edge, use the corresponding extension management page.
 3. Select the folder containing `manifest.json` at its top level. Disable previous versions to avoid duplicate buttons.
 4. Open an [arXiv search](https://arxiv.org/search/?query=bioinformatics&searchtype=all&size=50), refresh the page, and use the floating download button or settings gear.
@@ -72,6 +72,10 @@ These are local/unit checks and **do not verify live provider integrations**. Se
 
 Inspired by [koenraijer/arxivcollector](https://github.com/koenraijer/arxivcollector) (GPL-3.0). This browser-extension implementation uses JavaScript. Distributed under **GPL-3.0-or-later**, see [LICENSE](LICENSE). An initiative of **DELTA IA**.
 
-## v0.4.0 — IEEE and search strategy
+## v0.4.1 — IEEE and search strategy
 
 The browser action now opens on the active page and does not redirect to arXiv. IEEE Xplore extraction captures visible result cards only, not complete search results. Every export records query strings, URL filters and access provenance. Optional DOI lookup uses OpenAlex (up to 20 DOIs); no indexed OA copy does not prove a paywall.
+
+## IEEE Xplore complete-result import
+
+The IEEE quick button collects only the visible search-results page (typically 25 articles), regardless of the total hit count. For full metadata export, use IEEE Xplore's official **Export Results → CSV** option. In the DELTA extension settings on the same search page, choose the CSV under **IEEE Xplore — importar todos os resultados**. Optionally enter the reported total (for example, 512) to verify count coverage. Convert locally into CSV, RIS, BibTeX or JSON and preserve the search strategy. No access controls or paywalls are bypassed. If the expected total is unknown, completeness remains unverified.
