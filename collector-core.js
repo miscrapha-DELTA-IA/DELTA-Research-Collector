@@ -775,7 +775,7 @@
         "[class*='result-title' i]", "[class*='item-title' i]",
         "[class*='titulo' i]", "[class*='title' i]",
         "[itemprop='name']", "[role='heading']",
-        "h2", "h3", "h4", "a[href]", "strong", "b"
+        "h2", "h3", "h4", "a[href]", "strong", "b", "p", "span", "div"
       ].join(",");
       const possibleTitleNodes=Array.from(node.querySelectorAll?.(titleSelector)||[]);
       let bestTitle=null, bestScore=-1;
@@ -791,6 +791,7 @@
           /^H[2-4]$/.test(type);
         const isNumbered=/^\d{1,6}\.\s+\S/.test(raw);
         const isLink=type==="A"&&Boolean(el.getAttribute?.("href"));
+        if(["P","SPAN","DIV"].includes(type)&&!isNumbered&&!isTitle)continue;
         const score=(isTitle?8:0)+(isNumbered?6:0)+(isLink?3:0)+
           (titleCandidate.length>=25&&titleCandidate.length<=250?1:0);
         if(score>bestScore){bestTitle=el;bestScore=score;}
