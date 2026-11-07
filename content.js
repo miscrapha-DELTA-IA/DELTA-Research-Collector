@@ -531,6 +531,7 @@
     try{
       await message({type:"DELTA_CAPES_RUN_SAVE",run});
       await sleep(400);
+      if(state.cancel){await finishCapesRun(run,"Cancelada pelo usuário.");return;}
       location.assign(core.capesPageUrl(run.baseUrl,run.currentPage));
     }catch(error){
       await finishCapesRun(run,"Falha ao carregar página "+run.currentPage+": "+error.message);
@@ -566,7 +567,7 @@
           traversed_pages:run.pages,
           expected_search_total:expected,
           page_warnings:run.warnings,
-          metadata_quality:"title/DOI/author/abstract/journal fields depend on HTML visibility; completeness not verified"
+          metadata_quality:"DOIs and titles from CAPES result cards; authors may be only first listed; abstracts, dates and journal titles may be absent; completeness unverified"
         });
       let saved="";
       if(run.saveLocal){
