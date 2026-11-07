@@ -892,6 +892,27 @@
     }
     return null;
   }
+  // A search may be opened on its last page (e.g. page=4&num=30).
+  // Normalize only pagination; preserve the complete search expression, filters,
+  // source and sort parameters. No undocumented CAPES API is used.
+  function capesPageUrl(href,page) {
+    const u=new URL(href);
+    if(core.detectProvider(u.href)!=="capes"||
+       !/\/acervo\/buscador\.html$/.test(u.pathname)||
+       !u.searchParams.has("q"))throw Error("CAPES: endereço de busca inválido.");
+    if(!Number.isSafeInteger(page)||page<1||page>200)throw Error("CAPES: página fora do intervalo.");
+    u.searchParams.set("page",String(page));
+    return u.href;
+  }
+  function capesSearchKey(href) {
+    const u=new URL(capesPageUrl(href,1));
+    u.searchParams.delete("page");
+    u.hash="";
+    u.searchParams.sort();
+    return u.href;
+  }
+  core.capesPageUrl=capesPageUrl;
+  core.capesSearchKey=capesSearchKey;
   core.parseCapesPage=parseCapesPage;
   core.findCapesNextPage=findCapesNextPage;
 })();
