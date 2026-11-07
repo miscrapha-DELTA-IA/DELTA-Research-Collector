@@ -8,7 +8,7 @@ For each database search, retain: provider, original search URL, exact query ter
 
 ## Provider-specific caveats
 
-- **arXiv, SciELO:** pagination depends on search-page HTML and may fail when layouts change. SciELO integration is experimental.
+- **CAPES:** experimental retrieval from visible search-page result cards and pagination. Metadata fields may be absent, pagination may stop early or reload, and full search coverage is not verified by automated tests. Preserve the original search URL, the portal's reported total, the output and any warnings. RIS/BibTeX official import remains an alternative. No bypass of institutional login or licensing.\n- **arXiv, SciELO:** pagination depends on search-page HTML and may fail when layouts change. SciELO integration is experimental.
 - **PubMed:** ESearch/EFetch APIs may not represent every website sidebar filter. Unsupported filters are blocked.
 - **OpenAlex, Crossref, Semantic Scholar, DOAJ:** API queries may differ from web interface ranking, indexing, scope, and filters. Semantic Scholar may rate limit and restrict result counts.
 - **bioRxiv/medRxiv:** collection uses the official date-range feed with an optional local title/abstract filter, **not** the same as the website search. A max scan limit can make results incomplete.
