@@ -36,7 +36,7 @@ jobs:
           from pathlib import Path
           import json, zipfile, hashlib
           version = json.loads(Path('manifest.json').read_text())['version']
-          assert version == '0.4.0', 'Version mismatch'
+          assert version == '0.4.1', 'Version mismatch'
           files = [Path(n) for n in ('manifest.json','background.js','collector-core.js','content.js')]
           files += sorted(Path('icons').glob('*.png'))
           assert len(files) == 7 and all(f.is_file() for f in files)
