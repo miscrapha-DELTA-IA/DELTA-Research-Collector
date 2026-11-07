@@ -638,7 +638,7 @@
     }
     while (i < text.length) {
       const found = text.indexOf("@", i); if (found < 0) break; i = found + 1;
-      const type = /^[A-Za-z]+/.exec(text.slice(i)); if (!type) continue;
+      const type = /^[\p{L}][\p{L}\p{N}_-]*/u.exec(text.slice(i)); if (!type) continue;
       const kind = type[0].toLowerCase(); i += type[0].length; ws();
       const open = text[i], end = open === "{" ? "}" : open === "(" ? ")" : null;
       if (!end) continue; i++;
@@ -682,6 +682,16 @@
     else if (ext === "bib" || ext === "bibtex" || (!ext && /@\w+\s*[{(]/.test(data))) parsed = parseBibtex(data, fileName);
     else throw Error("CAPES: use arquivo RIS ou BibTeX exportado pelo Portal.");
     if (!parsed.records.length) throw Error("CAPES: nenhum registro bibliográfico válido encontrado.");
+    // CAPES exports may have Unicode item types (e.g. @Revisão). Prevent silent loss.
+    if (parsed.format === "BibTeX") {
+      const headers = Array.from(data.matchAll(/^\s*@([^\s{(]+)\s*[{(]/gmu))
+        .filter(m => !["comment", "string", "preamble"].includes(m[1].toLowerCase()));
+      if (headers.length !== parsed.records.length + parsed.skipped) {
+        throw Error("CAPES: inconsistência na leitura do BibTeX: " + headers.length +
+          " entradas declaradas, " + parsed.records.length + " importadas, " +
+          parsed.skipped + " ignoradas. Não utilize exportação parcial silenciosa.");
+      }
+    }
     return { ...parsed, imported: parsed.records.length };
   }
   if (globalThis.DELTA_CORE) globalThis.DELTA_CORE.parseCapesNativeExport = parseNativeExport;
