@@ -1,0 +1,35 @@
+name: Refresh official DELTA extension icons
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/generate_extension_icons.py'
+      - 'assets/branding/delta-logo.webp'
+      - '.github/workflows/update-extension-icons.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  icons:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Install Pillow
+        run: python3 -m pip install --quiet Pillow
+      - name: Render approved logo as icon PNGs
+        run: python3 scripts/generate_extension_icons.py
+      - name: Commit icon updates if changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add icons/16.png icons/32.png icons/48.png icons/128.png
+          if git diff --cached --quiet; then
+            echo "Icons already match approved logo"
+          else
+            git commit -m "style(icons): use official DELTA Research Collector brand"
+            git push origin HEAD:main
+          fi
