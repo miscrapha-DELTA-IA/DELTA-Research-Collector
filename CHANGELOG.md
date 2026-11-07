@@ -1,3 +1,11 @@
+## v0.4.1 — IEEE Xplore full-results import
+
+- Clarify that direct IEEE capture includes only currently visible results (25 per page by default).
+- Add a local importer for IEEE Xplore's native CSV export, including DOI-based deduplication and CSV/BibTeX/RIS/JSON export.
+- Allow recording expected total and coverage percentage without claiming exhaustive retrieval when unverified.
+- Preserve search URL, filters and strategy metadata with imported records.
+- Make the installer workflow version independent.
+
 # Changelog
 
 ## 0.4.0
