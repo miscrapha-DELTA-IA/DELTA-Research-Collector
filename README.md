@@ -95,7 +95,7 @@ Além de CSV, RIS, BibTeX e JSON, a extensão agora exporta uma **matriz interat
 
 [Fluxo detalhado, interpretações e limitações](docs/REVIEW_MATRIX.md)
 
-## Portal de Periódicos CAPES — coleta por navegação de páginas (experimental, v0.5.8)
+## Portal de Periódicos CAPES — coleta por navegação de páginas (experimental, v0.5.9)
 
 **Fluxo principal:** abra uma busca por assunto no Portal CAPES e clique em **Coletar busca**. O DELTA tenta ler os cartões de resultados visíveis, avançar pela paginação disponível na interface e reunir os registros até o limite selecionado (500 por padrão no Portal). A exportação pode ser CSV, RIS, BibTeX, JSON ou matriz de triagem HTML. A biblioteca local e a auditoria são opcionais.
 
@@ -119,6 +119,12 @@ Exemplo de auditoria: **456 resultados exibidos** no Portal não significam 456 
 **Metadados incompletos:** no CSV de teste, título, DOI, ano e link estavam preenchidos, porém **resumo, data e periódico estavam vazios**, e a autoria pode representar somente parte dos autores. A paginação corrigida não resolve automaticamente a ausência de campos; esses dados precisam de validação específica antes de uso científico.
 
 **Validação:** o fluxo de navegação por URL e retomada foi coberto por testes sintéticos, mas **a coleta integral no Opera ainda não está comprovada**. Se a página não avançar, recusar navegação, mudar os filtros ou deixar de apresentar cartões reconhecíveis, o DELTA exportará apenas os registros recuperados e identificará o resultado como parcial. Fechar a aba ou reiniciar o navegador pode interromper a coleta.
+
+**Auditoria v0.5.9:** novo CSV da busca temporalmente filtrada contém **118 identificadores e 118 títulos distintos**, correspondentes ao total apresentado pelo Portal, mas ainda sem comprovação externa de identidade de cada registro. A inspeção encontrou anos incorretos extraídos de trechos de resultados, autoria incompleta, resumos/periódicos vazios e pelo menos um DOI concatenado com texto de navegação.
+
+A extração foi endurecida para obter o ano da linha de publicação do cartão, reconhecer o periódico após a barra `|`, reunir todos os links de autores visíveis, priorizar links DOI e rejeitar sufixos textuais suspeitos. Trechos de resultados **não** são tratados como resumos completos. O relatório de estratégia agora registra contagens de campos ausentes.
+
+**Proteção contra HTML desatualizado:** a CAPES pode exibir cartões da última página enquanto a URL já indica `page=1`. A v0.5.9 valida a faixa efetiva mostrada pela paginação (por exemplo, `91–118 de 118`) antes de atribuir artigos a uma página. Em caso de divergência persistente, a coleta para e sinaliza saída parcial, em vez de declarar cobertura completa por engano.
 
 **Independente e não homologada pela CAPES.** Preserve a URL, os parâmetros e o relatório de cobertura e confira uma amostra contra os resultados originais antes de usar os dados em estudo científico.
 
