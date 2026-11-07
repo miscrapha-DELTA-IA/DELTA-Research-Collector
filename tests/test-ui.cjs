@@ -4,10 +4,11 @@ const fs = require("node:fs");
 const script = fs.readFileSync(require("node:path").join(__dirname, "..", "content.js"), "utf8");
 const ids = ["delta-panel","delta-source","delta-query-preview","delta-filter-preview","delta-max","delta-format",
 "delta-coverage-options","delta-expected-total","delta-audit-result","delta-start","delta-cancel","delta-progress","delta-status",
-"delta-one-click","delta-config","delta-ieee-action","delta-ieee-file","delta-ieee-import-run","delta-page-info",
+"delta-one-click","delta-config","delta-ieee-action","delta-ieee-file","delta-ieee-import-run",
 "delta-library","delta-library-html","delta-library-csv","delta-library-json","delta-library-ris","delta-library-bib",
 "delta-strategy","delta-strategy-export","delta-oa-label","delta-local-label","delta-pdf-label","delta-clear"];
 for (const id of ids) assert.ok(script.includes('id="' + id + '"'), "Missing input/control " + id);
+assert.match(script, /pageInfo\.id = "delta-page-info"/, "Page indicator is created dynamically");
 assert.match(script, /panel\.replaceChildren\(header/, "Expected progressive disclosure layout");
 assert.match(script, /makeFold\("Biblioteca e matriz"/, "Library/review section should be collapsible");
 assert.doesNotMatch(script, /makeFold\("Importar CSV oficial"/, "Import pane should not take visual space");
