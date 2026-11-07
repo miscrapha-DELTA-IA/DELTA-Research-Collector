@@ -30,3 +30,4 @@ jobs:
           node tests/test-background.cjs
           node tests/test-context.cjs
           node tests/test-review.cjs
+          node tests/test-ui.cjs
