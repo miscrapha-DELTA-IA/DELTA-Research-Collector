@@ -77,6 +77,22 @@ flowchart LR
 La recopilación directa del IEEE lee **solo los resultados visibles de la página actual**. Si IEEE informa 512 resultados y DELTA obtiene unos 25, la exportación es **parcial**. Para conjuntos grandes, use la **exportación CSV nativa de IEEE Xplore** e importe el archivo en DELTA. Indique el total esperado para comparar las cantidades. La coincidencia numérica no demuestra por sí misma la exactitud de los metadatos.
 </details>
 
+## Matriz visual de cribado — nueva en v0.5.0
+
+Además de CSV, RIS, BibTeX y JSON, la extensión ahora exporta una **matriz interactiva en HTML que funciona sin conexión**, pensada para el cribado manual de colecciones extensas.
+
+- **Lectura clara:** títulos destacados, resúmenes desplegables, autores, año, DOI y enlaces.
+- **Filtros de revisión:** búsqueda libre, fuente, acceso, decisión y metadatos ausentes.
+- **Decisiones documentadas:** **Incluir / Excluir / Duda / Pendiente**, con motivos y notas.
+- **Anotaciones portátiles:** exportar CSV anotado o guardar e importar decisiones JSON.
+- **Auditoría de cobertura:** totales recuperados, total informado y advertencias metodológicas.
+
+**Uso:** realiza una búsqueda, introduce opcionalmente el total mostrado por la base en *Auditoria de cobertura*, selecciona **Matriz visual interativa (HTML)** y abre el archivo descargado. También puedes exportar la biblioteca local como matriz visual.
+
+> **Advertencia:** la coincidencia de cantidades no demuestra equivalencia de registros, filtros ni ordenación. Exporta tus decisiones antes de cerrar el archivo.
+
+[Guía completa y limitaciones metodológicas](docs/REVIEW_MATRIX.md)
+
 ## Cobertura por fuente
 
 | Fuente | Integración | Limitación relevante |
