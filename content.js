@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.4.1. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.5.0. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -58,7 +58,7 @@
       <p class="sub" id="delta-source"></p>
       <div class="two">
         <div><label for="delta-max">Máx. de registros</label><select id="delta-max"><option value="50">50</option><option value="200" selected>200</option><option value="500">500</option><option value="1000">1.000</option><option value="2000">2.000</option></select></div>
-        <div><label for="delta-format">Formato</label><select id="delta-format"><option value="csv">CSV (Excel)</option><option value="bibtex">BibTeX (Zotero)</option><option value="json">JSON</option><option value="ris">RIS (Zotero)</option></select></div>
+        <div><label for="delta-format">Formato</label><select id="delta-format"><option value="csv">CSV (Excel)</option><option value="bibtex">BibTeX (Zotero)</option><option value="json">JSON</option><option value="ris">RIS (Zotero)</option><option value="html">Matriz visual interativa (HTML)</option></select></div>
       </div>
       <div class="special" id="delta-doaj-options" hidden>
         <label for="delta-doaj-query">Consulta na API DOAJ (sem filtros da interface)</label>
@@ -83,6 +83,13 @@
         <div class="status" id="delta-query-preview"></div><div class="status" id="delta-filter-preview"></div>
         <button class="mini" id="delta-strategy-export">Exportar estratégia JSON</button>
       </div>
+      <div class="special" id="delta-coverage-options">
+        <strong style="font-size:12px">Auditoria de cobertura</strong>
+        <label for="delta-expected-total">Resultados exibidos na base (opcional)</label>
+        <input id="delta-expected-total" type="number" min="1" max="10000000" placeholder="Ex.: 512" style="width:100%;min-height:40px;background:#1a324a;color:#fff;border:1px solid #38536d;border-radius:9px;padding:8px"/>
+        <p class="note">Usado somente para comparar contagens. Quantidades iguais não comprovam correspondência dos artigos, filtros ou ranking.</p>
+        <div class="status" id="delta-audit-result" role="status" aria-live="polite">Total não informado — completude ainda não verificada.</div>
+      </div>
       <label class="check" id="delta-oa-label"><input type="checkbox" id="delta-oa"/><span>Verificar cópias abertas por DOI via OpenAlex (até 20; envia os DOIs).</span></label>
       <label class="check" id="delta-local-label"><input type="checkbox" id="delta-local" checked/><span>Adicionar registros à biblioteca local para deduplicação entre fontes (por DOI).</span></label>
       <label class="check" id="delta-pdf-label"><input type="checkbox" id="delta-pdf" /><span>Também solicitar PDFs do arXiv (máximo 20 por coleta).</span></label>
@@ -93,7 +100,7 @@
       <div class="special" id="delta-library">
         <div class="top"><strong style="font-size:12px">Biblioteca e histórico local</strong><button class="mini" id="delta-refresh">Atualizar</button></div>
         <div class="status" id="delta-library-info">Clique Atualizar para consultar.</div>
-        <div class="minirow"><button class="mini" id="delta-library-ris">Exportar RIS / Zotero</button><button class="mini" id="delta-library-bib">BibTeX</button><button class="mini" id="delta-library-csv">CSV</button><button class="mini" id="delta-library-json">JSON</button></div>
+        <div class="minirow"><button class="mini" id="delta-library-ris">Exportar RIS / Zotero</button><button class="mini" id="delta-library-bib">BibTeX</button><button class="mini" id="delta-library-csv">CSV</button><button class="mini" id="delta-library-json">JSON</button><button class="mini" id="delta-library-html">Matriz visual</button></div>
         <div class="history" id="delta-history"></div>
         <div class="minirow"><button class="mini" id="delta-clear">Apagar biblioteca e histórico</button></div>
       </div>
@@ -201,7 +208,7 @@
     const context=strategy();
     const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.4.1",
+      generator: "DELTA Research Collector 0.5.0",
       source: provider, original_search_url: context.url, exported_at: now.toISOString(),
       search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
       retrieval_mode:retrievalMode,collector_note:collectorNote,
@@ -210,12 +217,25 @@
       ...extraMetadata,
       note: "Coleta limitada à quantidade solicitada, não representa necessariamente a base inteira."
     };
+    const manualTotal = $("expected-total").value.trim();
+    const audit = globalThis.DELTA_REVIEW.auditCoverage({
+      source:provider, retrieval_mode:retrievalMode, collected:rows.length, requested_limit:max,
+      reported_total:extraMetadata.reported_total ?? null,
+      expected_total:extraMetadata.expected_search_total ?? manualTotal,
+      truncated, cancelled, failed:Boolean(extraMetadata.failure),
+      filters:context.filters, query:context.query
+    });
+    metadata.audit = audit;
+    metadata.partial = audit.partial;
+    const countDescription = audit.expected_total === null ? "total não verificado" : rows.length + "/" + audit.expected_total + " (" + audit.coverage_percent + "%)";
+    $("audit-result").textContent = "Cobertura: " + countDescription + " · fidelidade da busca não verificada; consulte o JSON de estratégia.";
     const bibComment = `% Search URL: ${context.url.replace(/[\r\n]/g, "")}\n% Query: ${context.query.replace(/[\r\n]/g, "")}\n% Collected at: ${now.toISOString()}\n`;
-    const text = format === "csv" ? core.toCsv(records) :
+    const text = format === "html" ? globalThis.DELTA_REVIEW.reviewHtml(records, metadata) :
+      format === "csv" ? core.toCsv(records) :
       format === "bibtex" ? bibComment + core.toBibtex(records) :
       format === "ris" ? core.toRis(records) : JSON.stringify({ metadata, records }, null, 2);
     saveText(JSON.stringify(metadata,null,2),`DELTA_${provider}_${timestamp}_estrategia.json`,"application/json;charset=utf-8");
-    saveText(text, file, format === "csv" ? "text/csv;charset=utf-8" : format === "bibtex" ? "application/x-bibtex;charset=utf-8" : format === "ris" ? "application/x-research-info-systems;charset=utf-8" : "application/json;charset=utf-8");
+    saveText(text, file, format === "csv" ? "text/csv;charset=utf-8" : format === "bibtex" ? "application/x-bibtex;charset=utf-8" : format === "ris" ? "application/x-research-info-systems;charset=utf-8" : format === "html" ? "text/html;charset=utf-8" : "application/json;charset=utf-8");
     return records;
   }
   function updateProgress(num, max, providerName) {
@@ -235,7 +255,10 @@
       const data=await refreshLibrary();
       if(!data.records.length){$('library-info').textContent='Biblioteca vazia. Faça uma coleta com armazenamento local ativado.';return;}
       const now=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-      const text=format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.4.1',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      const text=format==='html'?globalThis.DELTA_REVIEW.reviewHtml(data.records,{
+        source:'biblioteca_local', exported_at:new Date().toISOString(), retrieval_mode:'local_merged_library',
+        audit:globalThis.DELTA_REVIEW.auditCoverage({source:'biblioteca_local',collected:data.records.length})
+      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.0',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
       saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
       $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
@@ -319,7 +342,7 @@
       else cursor = parsed.nextCursor;
       if (!done && rows.length < max && !state.cancel) await sleep(1100);
     }
-    return { truncated: !done && rows.length >= max };
+    return { truncated: !done && rows.length >= max, reported_total:Number.isFinite(total)?total:null };
   }
   async function collectPubmed(max, rows, seen) {
     const searchUrl = core.buildPubmedSearchUrl(location.href, max);
@@ -339,7 +362,7 @@
       updateProgress(rows.length,max,"PubMed");
       if (offset + 100 < ids.length && !state.cancel) await sleep(800);
     }
-    return {truncated: total > max};
+    return {truncated: total > max,reported_total:Number.isFinite(total)?total:null};
   }
   async function collectOpenAlex(max, rows, seen) {
     let page = 1, total = Infinity, done = false;
@@ -358,7 +381,7 @@
       page++;
       if (!done && rows.length < max && !state.cancel) await sleep(1100);
     }
-    return {truncated:total > max};
+    return {truncated:total > max,reported_total:Number.isFinite(total)?total:null};
   }
   async function collectCrossref(max, rows, seen) {
     let cursor = '*', total = Infinity, done = false;
@@ -380,7 +403,7 @@
       else cursor=result.nextCursor;
       if (!done && rows.length < max && !state.cancel) await sleep(1200);
     }
-    return {truncated:total > max};
+    return {truncated:total > max,reported_total:Number.isFinite(total)?total:null};
   }
   async function collectSemanticScholar(max, rows, seen) {
     if (max > 1000) throw new Error('Semantic Scholar: máximo de 1.000 resultados ordenados por relevância. Escolha 1.000 ou menos.');
@@ -401,7 +424,7 @@
       if (!result.pageSize || result.pageSize < limit || offset >= total || offset >= 1000) done=true;
       if (!done && rows.length < max && !state.cancel) await sleep(3100);
     }
-    return {truncated:total > max};
+    return {truncated:total > max,reported_total:Number.isFinite(total)?total:null};
   }
 
   async function collectDoaj(max,rows,seen) {
@@ -418,7 +441,7 @@
       page++;
       if(!done&&rows.length<max&&!state.cancel)await sleep(1100);
     }
-    return {truncated:total>max,note:override?'Busca DOAJ via expressão informada na extensão; filtros da interface não foram transferidos.':''};
+    return {truncated:total>max,reported_total:Number.isFinite(total)?total:null,note:override?'Busca DOAJ via expressão informada na extensão; filtros da interface não foram transferidos.':''};
   }
   async function collectSciELO(max,rows,seen){
     let from=1,count=15,done=false,total=null;
@@ -437,7 +460,7 @@
       if(result.pageSize<count||(Number.isFinite(total)&&from>total))done=true;
       if(!done&&rows.length<max&&!state.cancel)await sleep(3600);
     }
-    return {truncated:(!done&&rows.length>=max)||(Number.isFinite(total)&&total>max),note:'SciELO experimental: metadados recuperados do HTML da página.'};
+    return {truncated:(!done&&rows.length>=max)||(Number.isFinite(total)&&total>max),reported_total:Number.isFinite(total)?total:null,note:'SciELO experimental: metadados recuperados do HTML da página.'};
   }
   async function collectPreprints(max,rows,seen){
     const from=$('from').value,to=$('to').value,term=$('keywords').value.trim();
@@ -486,7 +509,7 @@
     const format = quick ? "csv" : $("format").value;
     const withPdfs = !quick && provider === "arxiv" && $("pdf").checked;
     const rows = [], seen = new Set();
-    let failure = null, truncated = false, collectorNote='',retrievalMode='provider_adapter';
+    let failure = null, truncated = false, collectorNote='',retrievalMode='provider_adapter',reportedTotal=null;
     setPanel(true); setBusy(true);
     $("progress").max = max; $("progress").value = 0;
     setStatus("Iniciando coleta…");
@@ -499,11 +522,12 @@
       const result = await collector(max, rows, seen);
       truncated = result.truncated;
       collectorNote=result.note||'';retrievalMode=result.retrieval_mode||'provider_adapter';
+      reportedTotal=Number.isFinite(result.reported_total)?result.reported_total:null;
     } catch (error) { failure = error; }
     try {
       if (rows.length) {
         if(!quick&&$('oa').checked&&!state.cancel){const oa=await checkOpenCopies(rows);collectorNote+=' | OA consultados: '+oa.checked+'; falhas: '+oa.errors;}
-        const records=exportRows(rows, format, max, state.cancel || !!failure, truncated,collectorNote,retrievalMode);
+        const records=exportRows(rows, format, max, state.cancel || !!failure, truncated,collectorNote,retrievalMode,{reported_total:reportedTotal,failure:failure?failure.message:null});
         let stored='';
         if($('local').checked){
           try{
@@ -564,7 +588,7 @@
   $("ieee-import-run").addEventListener("click",importIEEECSV);
   $('config').addEventListener('click',showStrategy);
   $('refresh').addEventListener('click',()=>refreshLibrary().catch(e=>$('library-info').textContent=e.message));
-  for(const form of ['ris','bib','csv','json']) $('library-'+form).addEventListener('click',()=>exportLibrary(form));
+  for(const form of ['ris','bib','csv','json','html']) $('library-'+form).addEventListener('click',()=>exportLibrary(form));
   $('clear').addEventListener('click',async()=>{
     if(!window.confirm('Apagar definitivamente a biblioteca unificada e o histórico local desta extensão? Os arquivos exportados não serão apagados.'))return;
     try{await message({type:'DELTA_LIBRARY_CLEAR',confirm:'APAGAR_BIBLIOTECA_LOCAL'});await refreshLibrary();}
