@@ -51,7 +51,7 @@ O IEEE Xplore é **experimental**: sem chave da API oficial, somente os resultad
 
 **Opera GX** (procedimento semelhante em Chrome e Edge):
 
-1. Baixe o [ZIP instalável v0.4.0](dist/DELTA-Research-Collector_v0.4.0_INSTALAR.zip) e extraia tudo em uma pasta permanente.
+1. Baixe o [ZIP da v0.4.0 gerado pelo GitHub Actions](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector/actions/workflows/build-installable.yml) (abra a execução mais recente e baixe o artefato instalável; é necessário entrar no GitHub) e extraia tudo em uma pasta permanente.
 2. Abra `opera://extensions` e ative **Modo do desenvolvedor**.
 3. Clique em **Carregar sem compactação** e escolha a pasta que contém `manifest.json` diretamente.
 4. Se já instalou uma versão anterior, desative-a para não exibir botões duplicados.
