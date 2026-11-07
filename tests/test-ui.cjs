@@ -25,3 +25,6 @@ assert.match(script,/capes:collectCapes/, "CAPES must have a direct browser coll
 assert.match(script,/async function collectCapes/, "CAPES collector must implement pagination");
 assert.match(script,/"capes_visible_search_pages_experimental"/, "CAPES audit must identify experimental retrieval mode");
 assert.doesNotMatch(script,/if \(provider === "capes"\) \{ openCapesFile\(\); return; \}/, "CAPES one-click must not force file import");
+
+assert.doesNotMatch(script,/selector:\s*"button\[aria-label\]"/,"CAPES diagnostic must not sample account-header controls");
+assert.match(script,/document\.querySelectorAll\("\.result-busca"\)/,"Diagnostic must identify CAPES cards");
