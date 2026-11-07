@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "DELTA Research Collector",
   "short_name": "DELTA Collector",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Pesquisa científica: matriz visual de triagem, 11 fontes, auditoria de cobertura e biblioteca local.",
   "minimum_chrome_version": "109",
   "permissions": [
