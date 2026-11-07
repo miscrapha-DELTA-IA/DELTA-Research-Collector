@@ -10,7 +10,7 @@
     <a href="https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector/actions/workflows/tests.yml"><img alt="Testes no GitHub Actions" src="https://img.shields.io/github/actions/workflow/status/miscrapha-DELTA-IA/DELTA-Research-Collector/tests.yml?branch=main&label=tests" /></a>
     <a href="LICENSE"><img alt="Licença GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-147D84" /></a>
     <img alt="Chromium Manifest V3" src="https://img.shields.io/badge/Chromium-Manifest%20V3-092D52" />
-    <img alt="11 plataformas integradas" src="https://img.shields.io/badge/integrations-11-0FAAB4" />
+    <img alt="11 coletas e importação CAPES" src="https://img.shields.io/badge/coletas-11%20%2B%20CAPES-0FAAB4" />
   </p>
   <p>
     <strong>🇧🇷 Português</strong> &nbsp;·&nbsp; <a href="README.en.md">🇺🇸 English</a> &nbsp;·&nbsp; <a href="README.es.md">🇪🇸 Español</a>
@@ -95,10 +95,21 @@ Além de CSV, RIS, BibTeX e JSON, a extensão agora exporta uma **matriz interat
 
 [Fluxo detalhado, interpretações e limitações](docs/REVIEW_MATRIX.md)
 
+## Portal de Periódicos CAPES — integração por arquivo (v0.5.3)
+
+O Portal CAPES permite exportar referências dos resultados em **RIS** e **BibTeX**. Primeiro, realize sua busca no site, selecione os itens desejados e utilize o comando de exportação oficial. Depois, na página do Portal, clique no botão **Importar CAPES** da extensão e selecione o arquivo RIS ou BibTeX.
+
+A extensão importa os metadados em sua biblioteca local (opcional), permite convertê-los para CSV, RIS, BibTeX e JSON e produzir a matriz visual HTML de triagem. O arquivo original é processado localmente; a auditoria registra seu nome, tamanho e SHA-256.
+
+**Limitações:** esta etapa não coleta automaticamente os resultados do site, não pagina no Portal, não faz login via CAFe e não acessa arquivos restritos. A identidade e a completude dos registros em relação à busca original não foram verificadas: total igual não é prova de equivalência de filtros, termos ou ordenação. Guarde o arquivo RIS/BibTeX original para conferência.
+
+Esta é uma integração **experimental, independente e não homologada pela CAPES**. O parser requer avaliação com exportações reais da interface atual.
+
 ## Cobertura por base
 
 | Fonte | Estratégia de integração | Limitação a observar |
 |---|---|---|
+| **Portal CAPES** | Importação local de arquivo RIS/BibTeX exportado pelo usuário | Sem coleta automática, autenticação ou paginação do Portal |
 | **IEEE Xplore** | Cartões visíveis e importação de CSV nativo | Coleta direta parcial; não pagina automaticamente |
 | **arXiv** | Resultados HTML paginados | Alterações no HTML podem afetar a coleta |
 | **Europe PMC** | API oficial | Campos dependem dos registros disponíveis |
@@ -111,7 +122,7 @@ Além de CSV, RIS, BibTeX e JSON, a extensão agora exporta uma **matriz interat
 | **bioRxiv** | API por intervalo de datas | Filtro textual local não equivale à busca do site |
 | **medRxiv** | API por intervalo de datas | Filtro textual local não equivale à busca do site |
 
-**11 integrações ≠ 11 coletas exaustivas.** As estratégias de extração diferem; nenhuma base deve ser considerada validada para revisão sistemática apenas pela presença nesta tabela.
+**11 adaptadores de coleta + importação CAPES não equivalem a buscas exaustivas.** As estratégias de extração diferem; nenhuma base deve ser considerada validada para revisão sistemática apenas pela presença nesta tabela.
 
 ## Reprodutibilidade e integridade científica
 
