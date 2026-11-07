@@ -1,3 +1,13 @@
+# Changelog
+
+## [0.5.0] — 2026-11-07
+
+- Added an offline, self-contained interactive HTML screening matrix with searchable records, readable abstracts, access-status badges and manual screening decisions.
+- Added notes and exclusion reasons, annotated CSV output, and portable JSON screening-decision export/reimport.
+- Added a count coverage audit to the search strategy manifest, with optional original provider/UI total and explicit non-equivalence warning.
+- Integrated the matrix into current-search exports, IEEE native CSV imports and local-library exports.
+- Added scientific usage documentation, multilingual README guidance, and regression tests. The collector remains experimental; no full-record-set equivalence is claimed.
+
 ## v0.4.1 — IEEE Xplore full-results import
 
 - Clarify that direct IEEE capture includes only currently visible results (25 per page by default).
