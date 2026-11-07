@@ -43,6 +43,6 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: DELTA-Research-Collector-v0.4.0-INSTALLER
-          path: DELTA-Research-Collector_v0.4.0_INSTALAR.zip
+          name: DELTA-Research-Collector-INSTALLER
+          path: DELTA-Research-Collector_v*_INSTALAR.zip
           if-no-files-found: error
