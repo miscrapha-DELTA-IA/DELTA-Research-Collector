@@ -95,7 +95,7 @@ Além de CSV, RIS, BibTeX e JSON, a extensão agora exporta uma **matriz interat
 
 [Fluxo detalhado, interpretações e limitações](docs/REVIEW_MATRIX.md)
 
-## Portal de Periódicos CAPES — integração por arquivo (v0.5.4)
+## Portal de Periódicos CAPES — integração por arquivo (v0.5.5)
 
 O Portal CAPES permite exportar referências dos resultados em **RIS** e **BibTeX**. Primeiro, realize sua busca no site, selecione os itens desejados e utilize o comando de exportação oficial. Depois, na página do Portal, clique no botão **Importar CAPES** da extensão e selecione o arquivo RIS ou BibTeX.
 
@@ -103,7 +103,7 @@ A extensão importa os metadados em sua biblioteca local (opcional), permite con
 
 **Limitações:** esta etapa não coleta automaticamente os resultados do site, não pagina no Portal, não faz login via CAFe e não acessa arquivos restritos. A identidade e a completude dos registros em relação à busca original não foram verificadas: total igual não é prova de equivalência de filtros, termos ou ordenação. Guarde o arquivo RIS/BibTeX original para conferência.
 
-Esta é uma integração **experimental, independente e não homologada pela CAPES**. O parser requer avaliação com exportações reais da interface atual. A partir da v0.5.4, o importador está integrado ao núcleo da extensão; para corrigir erros por arquivos de versões diferentes, atualize a pasta inteira da instalação e recarregue a extensão e a página.
+Esta é uma integração **experimental, independente e não homologada pela CAPES**. O parser requer avaliação com exportações reais da interface atual. A partir da v0.5.4, o importador está integrado ao núcleo da extensão. **Correção v0.5.5:** tipos BibTeX em português com acentos, como `@Revisão`, passam a ser reconhecidos; uma verificação confronta o número de entradas declaradas com as processadas para impedir perdas silenciosas. Uma auditoria de arquivo real identificou 30 entradas BibTeX/RIS na CAPES, anteriormente reduzidas para 24 no BibTeX. Para aplicar a correção, substitua todos os arquivos da extensão, recarregue em `opera://extensions` e atualize a página do Portal.
 
 ## Cobertura por base
 
