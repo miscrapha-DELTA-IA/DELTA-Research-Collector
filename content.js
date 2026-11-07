@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.5.0. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.5.1. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -316,7 +316,7 @@
     const context=strategy();
     const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.5.0",
+      generator: "DELTA Research Collector 0.5.1",
       source: provider, original_search_url: context.url, exported_at: now.toISOString(),
       search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
       retrieval_mode:retrievalMode,collector_note:collectorNote,
@@ -366,7 +366,7 @@
       const text=format==='html'?globalThis.DELTA_REVIEW.reviewHtml(data.records,{
         source:'biblioteca_local', exported_at:new Date().toISOString(), retrieval_mode:'local_merged_library',
         audit:globalThis.DELTA_REVIEW.auditCoverage({source:'biblioteca_local',collected:data.records.length})
-      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.0',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.1',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
       saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
       $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
