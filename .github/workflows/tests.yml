@@ -22,9 +22,11 @@ jobs:
         run: |
           node --check collector-core.js
           node --check content.js
+          node --check review-matrix.js
           node --check background.js
       - name: Run offline unit tests
         run: |
           node tests/test-core.cjs
           node tests/test-background.cjs
           node tests/test-context.cjs
+          node tests/test-review.cjs
