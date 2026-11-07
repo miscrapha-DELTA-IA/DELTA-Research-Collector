@@ -531,6 +531,7 @@
   function detectProvider(href) {
     const u = new URL(href);
     if (u.hostname === "ieeexplore.ieee.org" && u.pathname.startsWith("/search/")) return "ieee";
+    if (["periodicos.capes.gov.br","www.periodicos.capes.gov.br"].includes(u.hostname) || /^www-periodicos-capes-gov-br\.ez\d+\.periodicos\.capes\.gov\.br$/.test(u.hostname)) return "capes";
     if (u.hostname === "arxiv.org" && u.pathname.startsWith("/search/")) return "arxiv";
     if (["europepmc.org", "www.europepmc.org"].includes(u.hostname) && u.pathname.startsWith("/search")) return "europepmc";
     if (u.hostname === "pubmed.ncbi.nlm.nih.gov" && u.pathname === "/" && u.searchParams.has("term")) return "pubmed";
