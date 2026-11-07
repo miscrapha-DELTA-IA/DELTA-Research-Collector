@@ -24,6 +24,8 @@
   </p>
 </div>
 
+**Interface v0.5.1:** a calmer collector panel, with search context, result limits, reported count and export up front. IEEE CSV import, library, visual screening and advanced settings are grouped in collapsible sections. Collection methods are unchanged.
+
 > [!IMPORTANT]
 > **Experimental project.** DELTA assists with collecting and organizing references, but does not guarantee that exports reproduce a provider's filters, rankings or total results. Verify coverage before reporting counts in scholarly work.
 
