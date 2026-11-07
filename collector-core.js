@@ -801,19 +801,41 @@
       // No title means no record. Never substitute a whole-card text guess.
       
       if(title.length<12||title.length>450||/^(?:\d+\s+)?(?:resultados?|filtros?|buscar|exportar|ordenar|selecionar tudo|próxim[ao] página)$/i.test(title))continue;
+      // Prefer a DOI hyperlink over concatenated textContent. The latter
+      // can glue a DOI to "Google" or another adjacent link label.
+      const doiLinks=Array.from(node.querySelectorAll?.('a[href*="doi.org/"]')||[]);
+      const doiFromLink=doiLinks.map(a=>core.normalizeDoi(a.getAttribute?.("href")||""))
+        .find(d=>/^10\.\d{4,9}\/\S+$/i.test(d))||"";
       const doiMatch=txt.match(/\b10\.\d{4,9}\/[^\s<>"'()[\]]+/i);
-      const linkDoi=Array.from(node.querySelectorAll?.('a[href*="doi.org/"]')||[])[0]?.getAttribute?.("href")||"";
-      const doi=core.normalizeDoi(doiMatch?.[0]||linkDoi);
-      const reliableDoi=/^10\.\d{4,9}\/\S+$/i.test(doi)?doi:"";
+      const doiFromText=core.normalizeDoi(doiMatch?.[0]||"");
+      const ambiguousSuffix=/(?:google|scholar|crossref|resumo|abstract|acesso|detalhes)$/i;
+      const reliableDoi=doiFromLink||(
+        /^10\.\d{4,9}\/\S+$/i.test(doiFromText)&&!ambiguousSuffix.test(doiFromText)
+        ?doiFromText:"");
       const titleLink=titleNode?.getAttribute?.("href") ||
         titleNode?.querySelector?.("a[href]")?.getAttribute?.("href") ||
         node.querySelector?.("a[href*='doi.org/'],a[href*='/acervo/']")?.getAttribute?.("href") || "";
       const article_url=validLink(titleLink,origin)||(reliableDoi?"https://doi.org/"+reliableDoi:"");
-      const year=txt.match(/\b(?:19|20)\d{2}\b/)?.[0]||"";
-      const authors=field(node,["[class*='author' i]","[class*='autor' i]","[data-testid*='author' i]"])
-        .split(/\s*;\s*|\s+\band\b\s+|\s+\be\b\s+/i).map(clean).filter(Boolean).slice(0,45);
-      const abstract=field(node,["[class*='abstract' i]","[class*='resumo' i]"]);
-      const journal=field(node,["[class*='journal' i]","[class*='periodico' i]","[class*='revista' i]"]);
+      // CAPES uses <p class="text-down-01">2021 - Publisher | Journal</p>.
+      // Do not take the first four-digit number from the whole card:
+      // snippets frequently mention older years unrelated to publication.
+      const publicationLines=Array.from(node.querySelectorAll?.("p.text-down-01")||[])
+        .map(el=>clean(el.textContent));
+      const publicationLine=publicationLines.find(line=>/^(?:19|20)\d{2}\s*-\s*/.test(line))||"";
+      const pubMatch=publicationLine.match(/^((?:19|20)\d{2})\s*-\s*(.*)$/);
+      const year=pubMatch?.[1]||"";
+      const journal=pubMatch?.[2]?.includes("|")?
+        clean(pubMatch[2].split("|").slice(1).join("|")):
+        field(node,["[class*='journal' i]","[class*='periodico' i]","[class*='revista' i]"]);
+      // Multiple CAPES author links are present, although the interface may
+      // show an abbreviated subset. Retain all visible linked authors only.
+      const linkedAuthors=Array.from(node.querySelectorAll?.("a.view-autor")||[])
+        .map(el=>clean(el.textContent)).filter(Boolean);
+      const authors=(linkedAuthors.length?Array.from(new Set(linkedAuthors)):
+        field(node,["[class*='author' i]","[class*='autor' i]","[data-testid*='author' i]"])
+          .split(/\s*;\s*|\s+\band\b\s+|\s+\be\b\s+/i).map(clean).filter(Boolean)).slice(0,45);
+      // Search-result snippets are NOT full article abstracts.
+      const abstract="";
       const idFromElement=node.getAttribute?.("data-id")||node.getAttribute?.("data-record-id")||"";
       const identifier=reliableDoi||clean(idFromElement)||(article_url && article_url!==origin?article_url:"")||
         "page:"+hash([title.toLocaleLowerCase(),year,authors[0]||""].join("|"));
@@ -822,8 +844,8 @@
       records.push({
         source:"Portal CAPES",identifier,title,authors,year,date:"",doi:reliableDoi,abstract,article_url,pdf_url:"",journal,
         access_status:"unknown",
-        access_evidence:"CAPES: metadados visíveis na página da busca; acesso completo não verificado",
-        access_url:""
+        access_evidence:"CAPES: metadados da listagem; autores podem ser abreviados; resumo não obtido; acesso completo não verificado",
+        access_url:"",sources:["Portal CAPES"]
       });
     }
     // Count is an unverified UI claim until compared to the extracted record IDs.
@@ -839,7 +861,15 @@
     }
     const total=matches.filter(x=>Number.isSafeInteger(x)&&x>=0).length
       ?Math.max(...matches.filter(x=>Number.isSafeInteger(x)&&x>=0)):null;
-    return {records,total,candidates:candidates.length,mode:"visible_page_dom"};
+    const pageRange=Array.from(pagers).map(pager=>
+      clean(pager.textContent).match(/\b([\d.]+)\s*[-–—]\s*([\d.]+)\s+de\s+([\d.]+)\s+itens\b/i)
+    ).find(Boolean);
+    const visibleRange=pageRange?{
+      start:Number(pageRange[1].replace(/\./g,"")),
+      end:Number(pageRange[2].replace(/\./g,"")),
+      total:Number(pageRange[3].replace(/\./g,""))
+    }:null;
+    return {records,total,candidates:candidates.length,visibleRange,mode:"visible_page_dom"};
   }
   function findCapesNextPage(doc) {
     const scopes=Array.from(doc.querySelectorAll?.(
