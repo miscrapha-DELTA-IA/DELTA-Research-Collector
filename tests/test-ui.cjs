@@ -31,3 +31,8 @@ assert.doesNotMatch(script,/if \(provider === "capes"\) \{ openCapesFile\(\); re
 
 assert.doesNotMatch(script,/selector:\s*"button\[aria-label\]"/,"CAPES diagnostic must not sample account-header controls");
 assert.match(script,/document\.querySelectorAll\("\.result-busca"\)/,"Diagnostic must identify CAPES cards");
+
+assert.match(script,/snapshot\.visibleRange\?\.start===requiredFirst/,"CAPES page data must match requested page range before collecting");
+assert.match(script,/visible_start:snapshot\.visibleRange\.start/,"CAPES strategy must record each visible page range");
+assert.match(script,/missing_journal:/,"CAPES strategy must report missing bibliographic fields");
+assert.match(script,/missing_abstract:/,"CAPES strategy must distinguish missing article abstracts");
