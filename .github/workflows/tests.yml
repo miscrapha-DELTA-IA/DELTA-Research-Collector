@@ -21,7 +21,6 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check collector-core.js
-          node --check capes-import.js
           node --check content.js
           node --check review-matrix.js
           node --check background.js
