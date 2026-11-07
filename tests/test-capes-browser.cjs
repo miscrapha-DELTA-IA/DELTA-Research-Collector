@@ -97,3 +97,21 @@ const right={
 const arrowGroup={querySelectorAll:()=>[left,right]};
 assert.equal(core.findCapesNextPage(actualShapeDoc),right,"Select right arrow in CAPES pagination when no text labels");
 console.log("PASS: 100 CAPES result-busca cards, 456 count, metadata and icon-only pagination.");
+
+
+// Regression from actual CAPES filtered export (Nov 7 2026):
+// num=30&page=4&publishyear=2019:2026, 118 total, 28 items last page.
+const capesFiltered="https://www.periodicos.capes.gov.br/index.php/acervo/buscador.html?q=clinical+prognosis&source=all&num=30&page=4&publishyear=2019%3A2026";
+const page1=new URL(core.capesPageUrl(capesFiltered,1));
+assert.equal(page1.searchParams.get("page"),"1");
+assert.equal(page1.searchParams.get("num"),"30");
+assert.equal(page1.searchParams.get("publishyear"),"2019:2026");
+assert.equal(page1.searchParams.get("q"),"clinical prognosis");
+assert.equal(page1.searchParams.get("source"),"all");
+assert.equal(new URL(core.capesPageUrl(capesFiltered,3)).searchParams.get("page"),"3");
+assert.equal(core.capesSearchKey(capesFiltered),core.capesSearchKey(page1.href),
+  "Changing page only must not change search identity");
+assert.equal(118-30*3,28,"Page 4 legitimately contains 28 records");
+assert.throws(()=>core.capesPageUrl("https://evil.example/search?q=test",1),/CAPES/);
+assert.throws(()=>core.capesPageUrl(capesFiltered,0),/página fora/);
+console.log("PASS: CAPES page-4 to page-1 normalization preserves search filters.");
