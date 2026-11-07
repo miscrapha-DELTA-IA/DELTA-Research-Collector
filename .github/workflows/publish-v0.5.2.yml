@@ -1,0 +1,87 @@
+name: Publish DELTA Research Collector v0.5.2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v0.5.2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.repository == 'miscrapha-DELTA-IA/DELTA-Research-Collector'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate sources
+        run: |
+          set -euo pipefail
+          python3 -m json.tool manifest.json > /dev/null
+          node --check background.js
+          node --check collector-core.js
+          node --check content.js
+          node --check review-matrix.js
+          node tests/test-core.cjs
+          node tests/test-background.cjs
+          node tests/test-context.cjs
+          node tests/test-review.cjs
+          node tests/test-ui.cjs
+      - name: Package installable extension
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile, hashlib
+          version = json.loads(Path('manifest.json').read_text())['version']
+          assert version == '0.5.2', 'Version mismatch'
+          files = [Path(n) for n in ('manifest.json','background.js','collector-core.js','review-matrix.js','content.js')]
+          files += sorted(Path('icons').glob('*.png'))
+          assert len(files) == 9 and all(f.is_file() for f in files)
+          package = Path('DELTA-Research-Collector_v0.5.2_INSTALAR.zip')
+          with zipfile.ZipFile(package,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
+              for f in files: z.write(f, f.as_posix())
+          with zipfile.ZipFile(package) as z:
+              assert z.testzip() is None and json.loads(z.read('manifest.json'))['version']==version
+          digest=hashlib.sha256(package.read_bytes()).hexdigest()
+          Path('SHA256SUMS.txt').write_text(f'{digest}  {package.name}\n')
+          print('ZIP:',package,'SHA256:',digest)
+          PY
+      - name: Prepare release notes
+        run: |
+          cat > RELEASE_NOTES.md <<'NOTES'
+          ## DELTA Research Collector v0.5.2 — IEEE Import & Official Logo
+
+          **Changes**
+          - The IEEE action **Importar e exportar no formato escolhido** stays visible in the main panel, and directly opens the native CSV file chooser.
+          - Removed the permanent upload box and duplicated IEEE total field.
+          - Reuse the reported-results count already visible in the coverage audit.
+          - Show source-specific pagination information: IEEE Xplore indicates the current page and typically 25 visible results, while arXiv indicates a paginated collection process.
+          - Replaced extension toolbar icons with PNGs generated from the approved DELTA brand logo (16/32/48/128px).
+
+          **Unchanged**
+          - CSV, RIS, BibTeX, JSON and offline HTML review matrix.
+          - Local deduplication, search strategy traceability, and provider-specific scientific warnings.
+
+          **Important:** IEEE direct collection is intentionally page-only. Importing IEEE's official CSV may recover additional metadata and records, but matching counts alone do not prove search equivalence.
+
+          **Installation:** Download and extract the ZIP, then use Load unpacked under opera://extensions or chrome://extensions. To preserve the existing local library, copy the files over the installed extension directory and click Reload instead of creating another installation.
+
+          Automated JS syntax and unit tests are run before release; manual Opera GX validation remains recommended.
+
+          NOTES
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v0.5.2 >/dev/null 2>&1; then
+            gh release upload v0.5.2 DELTA-Research-Collector_v0.5.2_INSTALAR.zip SHA256SUMS.txt --clobber
+          else
+            gh release create v0.5.2 DELTA-Research-Collector_v0.5.2_INSTALAR.zip SHA256SUMS.txt --target "$GITHUB_SHA" --title "DELTA Research Collector v0.5.2" --notes-file RELEASE_NOTES.md --latest
+          fi
