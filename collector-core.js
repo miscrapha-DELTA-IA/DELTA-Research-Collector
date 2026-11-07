@@ -460,7 +460,9 @@
       if(title.length<5)continue;ids.add(id);
       const text=clean(e.textContent),rawDoi=text.match(/\b10\.\d{4,9}\/[^\s<>"']+/i)?.[0]||e.querySelector('a[href*="doi.org/"]')?.getAttribute('href')||'';
       const authors=[...e.querySelectorAll('a[href*="/author/"],.authors a,.author a')].map(n=>clean(n.textContent)).filter(Boolean).slice(0,60);
-      const isOpen=/(?:^|\s)Open Access(?:\s|$)/i.test(text),locked=/(?:^|\s)Locked(?:\s|$)|subscription required|purchase pdf/i.test(text);
+      const badges=[...e.querySelectorAll('span,[class*="access"],[title],[aria-label]')].map(n=>clean(n.textContent).toLowerCase());
+      const isOpen=badges.includes('open access')||(!title.toLowerCase().includes('open access')&&/(?:^|\s)Open Access(?=\d|\s|$)/i.test(text));
+      const locked=badges.includes('locked')||/(?:^|\s)Locked(?=\d|\s|$)|subscription required|purchase pdf/i.test(text);
       records.push({source:'IEEE Xplore',identifier:id,title,authors,year:text.match(/\b(?:19|20)\d{2}\b/)?.[0]||'',date:'',doi:normalizeDoi(rawDoi),abstract:'',article_url:'https://ieeexplore.ieee.org/document/'+id,pdf_url:'',journal:'',
         access_status:isOpen?'open':locked?'publisher_restricted':'unknown',access_evidence:isOpen?'IEEE: selo Open Access':locked?'IEEE: selo Locked':'Sem sinal confiavel na pagina',access_url:isOpen?'https://ieeexplore.ieee.org/document/'+id:''});
     }
