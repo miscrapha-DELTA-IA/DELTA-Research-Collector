@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.5.8. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.5.9. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -354,7 +354,7 @@
     const context=strategy();
     const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.5.8",
+      generator: "DELTA Research Collector 0.5.9",
       source: provider, original_search_url: context.url, exported_at: now.toISOString(),
       search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
       retrieval_mode:retrievalMode,collector_note:collectorNote,
@@ -404,7 +404,7 @@
       const text=format==='html'?globalThis.DELTA_REVIEW.reviewHtml(data.records,{
         source:'biblioteca_local', exported_at:new Date().toISOString(), retrieval_mode:'local_merged_library',
         audit:globalThis.DELTA_REVIEW.auditCoverage({source:'biblioteca_local',collected:data.records.length})
-      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.8',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.9',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
       saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
       $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
@@ -455,8 +455,15 @@
       capesOriginalSearchUrl=run.baseUrl;
       await message({type:"DELTA_CAPES_RUN_SAVE",run});
       setStatus("CAPES: iniciando pela página 1; a aba navegará automaticamente pelas páginas da busca.");
+      const expectedStart=(run.startingPage-1)*run.pageSize+1;
       if(run.startingPage!==1){
         location.assign(run.baseUrl);
+        return;
+      }
+      // A CAPES SPA may leave page-4 cards rendered after its URL changes to
+      // page=1. Re-render from the server instead of trusting the URL alone.
+      if(current.visibleRange&&current.visibleRange.start!==expectedStart){
+        location.reload();
         return;
       }
       await processCapesPage(run);
@@ -478,15 +485,21 @@
     let snapshot=null;
     for(let attempt=0;attempt<18&&!state.cancel;attempt++){
       snapshot=core.parseCapesPage(document,location.href);
-      if(snapshot.records.length)break;
-      setStatus("CAPES: carregando página "+run.currentPage+"…");
+      const requiredFirst=(run.currentPage-1)*run.pageSize+1;
+      if(snapshot.records.length&&snapshot.visibleRange?.start===requiredFirst)break;
+      setStatus("CAPES: aguardando página "+run.currentPage+
+        " (a tela ainda exibe "+(snapshot.visibleRange?.start??"faixa desconhecida")+")…");
       await sleep(500);
     }
     if(state.cancel){
       await finishCapesRun(run,"Cancelada pelo usuário.");return;
     }
-    if(!snapshot?.records?.length){
-      await finishCapesRun(run,"Página "+run.currentPage+" sem cartões bibliográficos reconhecidos.");return;
+    const requiredFirst=(run.currentPage-1)*run.pageSize+1;
+    if(!snapshot?.records?.length||snapshot.visibleRange?.start!==requiredFirst){
+      await finishCapesRun(run,"Página "+run.currentPage+
+        ": não foi possível confirmar a faixa bibliográfica esperada (início "+
+        requiredFirst+"; observado "+(snapshot?.visibleRange?.start??"desconhecido")+
+        "). Coleta interrompida para não confundir páginas.");return;
     }
     const currentTotal=Number.isSafeInteger(snapshot.total)&&snapshot.total>0?snapshot.total:null;
     if(run.expectedTotal===null&&currentTotal!==null)run.expectedTotal=currentTotal;
@@ -503,7 +516,8 @@
       uniques.add(key);run.records.push(row);added++;
     }
     run.pages.push({page:run.currentPage,cards_visible:snapshot.candidates,
-      records_parsed:snapshot.records.length,unique_added:added,reported_total:currentTotal});
+      records_parsed:snapshot.records.length,unique_added:added,reported_total:currentTotal,
+      visible_start:snapshot.visibleRange.start,visible_end:snapshot.visibleRange.end});
     const expectedThisPage=run.expectedTotal===null?null:
       Math.min(run.pageSize,Math.max(0,run.expectedTotal-(run.currentPage-1)*run.pageSize));
     if(snapshot.records.length<snapshot.candidates||expectedThisPage!==null&&
@@ -559,6 +573,16 @@
         const result=await checkOpenCopies(rows);
         run.warnings.push("Verificação OA: "+result.checked+" DOIs; "+result.errors+" falhas.");
       }
+      const metadataQuality={
+        records:rows.length,
+        missing_doi:rows.filter(r=>!r.doi).length,
+        missing_author:rows.filter(r=>!r.authors?.length).length,
+        missing_publication_year:rows.filter(r=>!r.year).length,
+        missing_journal:rows.filter(r=>!r.journal).length,
+        missing_abstract:rows.filter(r=>!r.abstract).length,
+        missing_full_date:rows.filter(r=>!r.date).length,
+        note:"Resumo de resultado não equivale a abstract. Autoria visível pode estar abreviada; DOI, periódico e ano precisam de revisão independente."
+      };
       const records=exportRows(rows,run.format,run.max,state.cancel,incomplete,note,
         "capes_browser_navigation_paged_experimental",{
           reported_total:expected,
@@ -567,7 +591,7 @@
           traversed_pages:run.pages,
           expected_search_total:expected,
           page_warnings:run.warnings,
-          metadata_quality:"DOIs and titles from CAPES result cards; authors may be only first listed; abstracts, dates and journal titles may be absent; completeness unverified"
+          metadata_quality:metadataQuality
         });
       let saved="";
       if(run.saveLocal){
@@ -984,7 +1008,7 @@
     };
     const parsed=core.parseCapesPage(document,location.href);
     const out={
-      generator:"DELTA Research Collector CAPES scoped diagnostic 0.5.8",
+      generator:"DELTA Research Collector CAPES scoped diagnostic 0.5.9",
       captured_at:new Date().toISOString(),source:"capes",
       sanitized_search_url:search.url,
       visible_cards:document.querySelectorAll(".result-busca").length,
