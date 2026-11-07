@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.5.3. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.5.4. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -352,7 +352,7 @@
     const context=strategy();
     const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.5.3",
+      generator: "DELTA Research Collector 0.5.4",
       source: provider, original_search_url: context.url, exported_at: now.toISOString(),
       search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
       retrieval_mode:retrievalMode,collector_note:collectorNote,
@@ -402,7 +402,7 @@
       const text=format==='html'?globalThis.DELTA_REVIEW.reviewHtml(data.records,{
         source:'biblioteca_local', exported_at:new Date().toISOString(), retrieval_mode:'local_merged_library',
         audit:globalThis.DELTA_REVIEW.auditCoverage({source:'biblioteca_local',collected:data.records.length})
-      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.3',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.4',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
       saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
       $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
@@ -694,6 +694,11 @@
   }
   function openCapesFile() {
     if(provider!=="capes"||state.running)return;
+    if(typeof core.parseCapesNativeExport!=="function"){
+      const explanation="Importador CAPES não carregado. Atualize todos os arquivos da extensão, clique em Recarregar em opera://extensions e atualize a página do Portal CAPES.";
+      $("capes-import-status").textContent=explanation;
+      setPanel(true);setStatus(explanation,true);return;
+    }
     $("capes-file").value="";
     $("capes-file").click();
   }
@@ -710,7 +715,8 @@
     $("capes-import-status").textContent="Lendo referências do arquivo local…";
     try{
       const input=await file.text();
-      const parsed=globalThis.DELTA_CAPES.parseNativeExport(input,file.name);
+      if(typeof core.parseCapesNativeExport!=="function")throw Error("Importador CAPES indisponível. Recarregue a extensão e atualize esta página.");
+      const parsed=core.parseCapesNativeExport(input,file.name);
       const count=parsed.imported;
       const totalText=$("expected-total").value.trim();
       const expected=totalText?Number(totalText):null;
