@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.5.6. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.5.7. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -354,7 +354,7 @@
     const context=strategy();
     const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.5.6",
+      generator: "DELTA Research Collector 0.5.7",
       source: provider, original_search_url: context.url, exported_at: now.toISOString(),
       search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
       retrieval_mode:retrievalMode,collector_note:collectorNote,
@@ -404,7 +404,7 @@
       const text=format==='html'?globalThis.DELTA_REVIEW.reviewHtml(data.records,{
         source:'biblioteca_local', exported_at:new Date().toISOString(), retrieval_mode:'local_merged_library',
         audit:globalThis.DELTA_REVIEW.auditCoverage({source:'biblioteca_local',collected:data.records.length})
-      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.6',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.7',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
       saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
       $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
@@ -867,27 +867,47 @@
   }
   $("capes-diagnostic").addEventListener("click",()=>{
     if(provider!=="capes")return;
-    const safeContext=strategy();
-    const selectors=["main","[data-testid*='result' i]","[class*='result' i]","[class*='resultado' i]",
-      "[class*='pagin' i]","article","h3","nav","button[aria-label]"];
-    const details=selectors.map(selector=>{
-      let nodes=[];
-      try{nodes=Array.from(document.querySelectorAll(selector));}catch{}
-      return {selector,count:nodes.length,samples:nodes.slice(0,5).map(node=>({
-        tag:node.tagName||"",classes:String(node.className||"").slice(0,220),
-        role:node.getAttribute("role")||"",aria_label:node.getAttribute("aria-label")||"",
-        text:core.clean(node.textContent).slice(0,180),
-        parent_classes:String(node.parentElement?.className||"").slice(0,160)
-      }))};
-    });
+    const search=strategy();
+    // Only sample search-result cards and pagination. The old broad diagnostic
+    // could inadvertently include account names in a header aria-label.
+    const resultCards=Array.from(document.querySelectorAll(".result-busca")).slice(0,3);
+    const samples=resultCards.map(card=>({
+      tag:card.tagName,
+      classes:String(card.className||"").slice(0,160),
+      bibliographic_text:core.clean(card.textContent).slice(0,240),
+      children:Array.from(card.querySelectorAll("a[href],h2,h3,h4,p,span,strong,b,[class*='title' i],[class*='titulo' i]"))
+        .slice(0,18).map(el=>({
+          tag:el.tagName,classes:String(el.className||"").slice(0,130),
+          text:core.clean(el.textContent).slice(0,160),
+          has_link:el.tagName==="A"&&Boolean(el.getAttribute("href"))
+        }))
+    }));
+    const pager=document.querySelector("nav.br-pagination");
+    const pagination={
+      exists:Boolean(pager),
+      text:core.clean(pager?.textContent).slice(0,220),
+      arrows:Array.from(pager?.querySelectorAll(".pagination-arrows button,.pagination-arrows a,.pagination-arrows [role='button']")||[])
+        .slice(0,6).map(el=>({
+          tag:el.tagName,classes:String(el.className||"").slice(0,100),
+          disabled:Boolean(el.disabled||el.getAttribute("aria-disabled")==="true"),
+          title:String(el.getAttribute("title")||"").slice(0,70),
+          icon_class:String(el.querySelector("i,svg")?.getAttribute("class")||"").slice(0,100)
+        })),
+      has_page_select:Boolean(pager?.querySelector(".pagination-go-to-page select"))
+    };
     const parsed=core.parseCapesPage(document,location.href);
-    const out={generator:"DELTA Research Collector CAPES DOM diagnostic 0.5.6",
+    const out={
+      generator:"DELTA Research Collector CAPES scoped diagnostic 0.5.7",
       captured_at:new Date().toISOString(),source:"capes",
-      sanitized_search_url:safeContext.url,visible_records_recognized:parsed.records.length,
-      reported_total:parsed.total,selectors:details,
-      note:"Diagnóstico estrutural do HTML visível. Revise o texto antes de compartilhar: pode incluir títulos e termos de busca. Não inclui cookies nem credenciais."};
+      sanitized_search_url:search.url,
+      visible_cards:document.querySelectorAll(".result-busca").length,
+      visible_records_recognized:parsed.records.length,
+      reported_total:parsed.total,
+      first_card_structure:samples,pagination,
+      note:"Somente trechos bibliográficos e paginação; nenhum cabeçalho de conta, botão de login, cookies ou credenciais. Revise os termos de busca e títulos antes de compartilhar."
+    };
     saveText(JSON.stringify(out,null,2),"DELTA_capes_diagnostico_"+new Date().toISOString().slice(0,10)+".json","application/json;charset=utf-8");
-    $("capes-import-status").textContent="Diagnóstico estrutural salvo. Reveja o JSON antes de compartilhar.";
+    $("capes-import-status").textContent="Diagnóstico CAPES restrito à busca e à paginação, salvo localmente.";
   });
   $("capes-import-run").addEventListener("click",openCapesFile);
   $("capes-file").addEventListener("change",()=>void importCapesFile());
