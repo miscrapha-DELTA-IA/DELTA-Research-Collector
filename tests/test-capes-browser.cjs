@@ -115,3 +115,51 @@ assert.equal(118-30*3,28,"Page 4 legitimately contains 28 records");
 assert.throws(()=>core.capesPageUrl("https://evil.example/search?q=test",1),/CAPES/);
 assert.throws(()=>core.capesPageUrl(capesFiltered,0),/página fora/);
 console.log("PASS: CAPES page-4 to page-1 normalization preserves search filters.");
+
+
+// Metadata regression from the scoped CAPES DOM diagnostic:
+// title link, multiple "view-autor" anchors, separate publisher/journal
+// paragraph and search snippet with an unrelated year.
+const metaTitle={tagName:"A",textContent:"Clinical prediction outcomes study",className:"titulo-busca",
+  getAttribute:k=>k==="href"?"/index.php/acervo/buscador.html?task=detalhes&id=W500":null};
+const metaAuthor1={tagName:"A",textContent:"Researcher One"};
+const metaAuthor2={tagName:"A",textContent:"Researcher Two"};
+const pubLine={textContent:"2023 - Example Publisher | Clinical Research Journal"};
+const metaSnippet={textContent:"The 2013 and 2017 papers are discussed..."};
+const doiAnchor={getAttribute:k=>k==="href"?"https://doi.org/10.9999/study.42":null};
+const metaCard={
+ textContent:"2013 2017 Clinical prediction outcomes study DOI: 10.9999/study.42Google",
+ id:"",getAttribute:()=>null,closest:()=>null,
+ querySelector:()=>null,
+ querySelectorAll:selector=>{
+  if(selector==="a.view-autor")return [metaAuthor1,metaAuthor2];
+  if(selector==="p.text-down-01")return [pubLine];
+  if(selector.includes('doi.org/'))return [doiAnchor];
+  if(selector.includes("[data-testid*='title'"))return [metaTitle];
+  return [];
+ }
+};
+const metaRoot={textContent:"91–118 de 118 itens",querySelectorAll:selector=>selector===".result-busca"?[metaCard]:[]};
+const metaPager={textContent:"Exibir 30 50 100 91–118 de 118 itens",
+  querySelector:()=>null,querySelectorAll:()=>[]};
+const metaDoc={querySelector:()=>metaRoot,
+  querySelectorAll:selector=>selector.includes("nav.br-pagination")?[metaPager]:[]};
+const meta=core.parseCapesPage(metaDoc,"https://www.periodicos.capes.gov.br/index.php/acervo/buscador.html?q=prediction&page=4&num=30");
+assert.equal(meta.records.length,1);
+assert.equal(meta.visibleRange.start,91);
+assert.equal(meta.visibleRange.end,118);
+assert.equal(meta.total,118);
+assert.deepEqual(meta.records[0].authors,["Researcher One","Researcher Two"]);
+assert.equal(meta.records[0].journal,"Clinical Research Journal");
+assert.equal(meta.records[0].year,"2023","Never infer the publication year from snippet dates");
+assert.equal(meta.records[0].doi,"10.9999/study.42","DOI link must take priority over concatenated text");
+assert.equal(meta.records[0].abstract,"","Search snippets must not be represented as complete abstracts");
+assert.deepEqual(meta.records[0].sources,["Portal CAPES"]);
+// When only concatenated text is available, an apparent "Google" suffix
+// is ambiguous and must not be exported as a verified DOI.
+const badDoi={...metaCard,querySelectorAll:selector=>
+  selector.includes('doi.org/')?[]:metaCard.querySelectorAll(selector)};
+const badRoot={...metaRoot,querySelectorAll:sel=>sel===".result-busca"?[badDoi]:[]};
+const badDoc={...metaDoc,querySelector:()=>badRoot};
+assert.equal(core.parseCapesPage(badDoc).records[0].doi,"");
+console.log("PASS: CAPES structured publication fields, multi-author capture, range and DOI ambiguity guard.");
