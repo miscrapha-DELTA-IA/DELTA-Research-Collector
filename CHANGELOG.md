@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1] — 2026-11-07
+
+- Redesigned the in-page collector with a quieter, light interface and a clear primary export workflow.
+- Moved IEEE CSV import, the library, the visual review matrix, and expert settings into accessible, collapsible sections.
+- Kept expected-result-count auditing visible without treating matching totals as scientific equivalence.
+- Consolidated styling into one stylesheet and preserved existing collection adapters and export formats.
+- No new source-API capabilities are claimed; IEEE visible-page capture remains partial.
+
 ## [0.5.0] — 2026-11-07
 
 - Added an offline, self-contained interactive HTML screening matrix with searchable records, readable abstracts, access-status badges and manual screening decisions.
