@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.5.5. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.5.6. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -149,7 +149,8 @@
       </div>
       <div id="delta-capes-action" class="delta-ieee-action" hidden>
         <input id="delta-capes-file" type="file" accept=".ris,.bib,.bibtex,text/plain" hidden aria-label="Selecionar RIS ou BibTeX exportado pelo Portal CAPES" />
-        <button class="mini" type="button" id="delta-capes-import-run">Importar RIS/BibTeX da CAPES</button>
+        <button class="mini" type="button" id="delta-capes-import-run">Alternativa: importar RIS/BibTeX oficial</button>
+        <button class="mini" type="button" id="delta-capes-diagnostic">Diagnóstico da página CAPES</button>
         <div class="status" id="delta-capes-import-status" role="status" aria-live="polite"></div>
       </div>
       <div class="special" id="delta-strategy">
@@ -249,7 +250,7 @@
 
 
   const providers = {
-    capes: ["Portal CAPES (experimental)", "Exporte RIS ou BibTeX na busca do Portal CAPES e importe o arquivo aqui. Não há coleta automática nem acesso às credenciais CAFe. Confira a cobertura e preserve o arquivo original."],
+    capes: ["Portal CAPES (coleta experimental)", "Coletar busca tenta percorrer os resultados visíveis e suas páginas na interface atual. O total recuperado pode ser menor que o total exibido; confira a auditoria. RIS/BibTeX nativo permanece como alternativa e não há acesso a senhas CAFe."],
     ieee: ["IEEE Xplore", "A coleta direta recupera apenas os resultados visíveis nesta página (geralmente até 25). Para um conjunto maior, exporte CSV pelo IEEE e use o botão de importação acima."],
     arxiv: ["arXiv", "A coleta pode percorrer várias páginas até o limite configurado. A correspondência da busca deve ser conferida; até 20 PDFs opcionais."],
     europepmc: ["Europe PMC", "API oficial. Metadados, resumos e links abertos quando disponíveis."],
@@ -262,7 +263,8 @@
     biorxiv: ["bioRxiv", "Coleta por período e filtro local opcional. NÃO equivale aos resultados de busca do site."],
     medrxiv: ["medRxiv", "Coleta por período e filtro local opcional. NÃO equivale aos resultados de busca do site."]
   };
-  const strategy=()=>core.searchContext(location.href);
+  let capesOriginalSearchUrl=null;
+  const strategy=()=>core.searchContext(capesOriginalSearchUrl||location.href);
   const showStrategy=()=>{$('query-preview').textContent='Busca: '+(strategy().query||'(não identificada na URL)');$('filter-preview').textContent='Parâmetros: '+Object.keys(strategy().parameters).length+' · filtros: '+Object.keys(strategy().filters).length;};
   $("source").textContent = providers[provider][0] + " · busca atual";
   showStrategy();
@@ -273,9 +275,9 @@
   $("ieee-action").hidden = provider !== "ieee";
   $("capes-action").hidden = provider !== "capes";
   if(provider==="capes"){
-    $("one-click").innerHTML='<span aria-hidden="true">↓</span> Importar CAPES';
-    $("one-click").title="Importar RIS/BibTeX exportado pelo Portal CAPES";
-    $("start").textContent="Importar arquivo CAPES";
+    $("one-click").innerHTML='<span aria-hidden="true">↓</span> Coletar busca';
+    $("one-click").title="Coletar resultados da CAPES, com paginação experimental";
+    $("max").value="500";
   }
   if(provider==="ieee"){$("one-click").innerHTML='<span aria-hidden="true">↓</span> Coletar página';$("one-click").title="IEEE: coleta somente a página atual (normalmente 25). Para a busca inteira use Export Results → CSV.";}
   $("preprint-options").hidden = !['biorxiv','medrxiv'].includes(provider);
@@ -301,8 +303,8 @@
     $("start").disabled = busy;
     $("one-click").disabled = busy;
     $("cancel").disabled = !busy;
-    $("start").textContent = busy ? "Processando..." : provider==="capes" ? "Importar arquivo CAPES" : "Baixar resultados";
-    $("one-click").innerHTML = busy ? "◌ PROCESSANDO..." : (provider==="capes"?'<span aria-hidden="true">↓</span> Importar CAPES':provider==="ieee"?'<span aria-hidden="true">↓</span> Coletar página':'<span aria-hidden="true">↓</span> Coletar busca');
+    $("start").textContent = busy ? "Processando..." : "Baixar resultados";
+    $("one-click").innerHTML = busy ? "◌ PROCESSANDO..." : (provider==="ieee"?'<span aria-hidden="true">↓</span> Coletar página':'<span aria-hidden="true">↓</span> Coletar busca');
   }
   function message(payload) {
     return new Promise((resolve, reject) => {
@@ -352,7 +354,7 @@
     const context=strategy();
     const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.5.5",
+      generator: "DELTA Research Collector 0.5.6",
       source: provider, original_search_url: context.url, exported_at: now.toISOString(),
       search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
       retrieval_mode:retrievalMode,collector_note:collectorNote,
@@ -402,12 +404,125 @@
       const text=format==='html'?globalThis.DELTA_REVIEW.reviewHtml(data.records,{
         source:'biblioteca_local', exported_at:new Date().toISOString(), retrieval_mode:'local_merged_library',
         audit:globalThis.DELTA_REVIEW.auditCoverage({source:'biblioteca_local',collected:data.records.length})
-      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.5',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.6',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
       saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
       $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
   }
 
+  // CAPES page-UI collection (experimental). The collector never makes restricted
+  // downloads or calls undocumented APIs. It observes the user's own rendered search.
+  async function collectCapes(max,rows,seen) {
+    const initial=new URL(location.href);
+    if(!/\/acervo\/buscador\.html$/.test(initial.pathname)||!initial.searchParams.has("q"))
+      throw Error("CAPES: abra uma busca por assunto com resultados carregados antes de coletar.");
+    if(typeof core.parseCapesPage!=="function"||typeof core.findCapesNextPage!=="function")
+      throw Error("CAPES: módulo de coleta não disponível. Atualize a extensão e recarregue esta página.");
+    capesOriginalSearchUrl=initial.href;
+    const started=Date.now();
+    let doc=document, pageHref=initial.href, pageCount=0, total=null, pageFailure="", haveMore=false, previousSignature="";
+    const maxPages=Math.max(1,Math.min(100,Math.ceil(max/10)+10));
+    const collectVisible = (snapshot) => {
+      for(const row of snapshot.records){
+        if(rows.length>=max)break;
+        const key=row.doi?"doi:"+core.normalizeDoi(row.doi):
+          "id:"+String(row.identifier||row.title).toLowerCase();
+        if(!seen.has(key)){seen.add(key);rows.push(row);}
+      }
+    };
+    for(let step=0;step<maxPages&&!state.cancel;step++){
+      // The first page may still be rendering when the user clicks.
+      let snapshot=core.parseCapesPage(doc,pageHref);
+      if(!snapshot.records.length&&pageCount===0){
+        for(let attempt=0;attempt<15&&!state.cancel;attempt++){
+          await sleep(400);
+          snapshot=core.parseCapesPage(doc,pageHref);
+          if(snapshot.records.length)break;
+        }
+      }
+      if(!snapshot.records.length){
+        pageFailure="Página "+(pageCount+1)+": nenhum resultado bibliográfico reconhecido no HTML; estrutura do Portal não validada.";
+        haveMore=true;break;
+      }
+      const signature=snapshot.records.map(x=>x.identifier).join("|");
+      if(pageCount&&signature===previousSignature){
+        pageFailure="Paginação não avançou: identificadores repetidos. A coleta foi interrompida para evitar resultados falsos.";
+        haveMore=true;break;
+      }
+      previousSignature=signature;
+      total=Number.isSafeInteger(snapshot.total)&&snapshot.total>0?snapshot.total:total;
+      pageCount++;
+      collectVisible(snapshot);
+      updateProgress(rows.length,max,"Portal CAPES · "+pageCount+" páginas");
+      if(total!==null&&rows.length>=total){haveMore=false;break;}
+      if(rows.length>=max){haveMore=true;break;}
+      if(Date.now()-started>180000){pageFailure="Tempo máximo da coleta atingido (3 minutos).";haveMore=true;break;}
+      const next=core.findCapesNextPage(doc);
+      if(!next){
+        haveMore=total!==null&&rows.length<total;
+        if(haveMore)pageFailure="Não foi localizado o controle de próxima página para recuperar os "+(total-rows.length)+" registros restantes.";
+        break;
+      }
+      haveMore=true;
+      // Where pagination has real URLs, fetch only within the current CAPES origin.
+      // A client-side-only page is not assumed to contain SSR metadata.
+      const href=next.getAttribute?.("href")||"";
+      let target=null;
+      try{if(href&&href!=="#"&&!/^javascript:/i.test(href))target=new URL(href,pageHref);}catch{}
+      if(target&&target.origin===initial.origin&&target.href!==pageHref){
+        try{
+          const controller=new AbortController();
+          const timeout=setTimeout(()=>controller.abort(),12000);
+          let response;
+          try{response=await fetch(target.href,{credentials:"same-origin",signal:controller.signal});}
+          finally{clearTimeout(timeout);}
+          if(!response.ok)throw Error("HTTP "+response.status);
+          const html=await response.text();
+          const parsed=new DOMParser().parseFromString(html,"text/html");
+          const sample=core.parseCapesPage(parsed,target.href);
+          if(!sample.records.length)throw Error("o HTML retornado não contém resultados reconhecíveis");
+          if(sample.records.map(x=>x.identifier).join("|")===previousSignature)
+            throw Error("os identificadores da próxima página repetiram os atuais");
+          doc=parsed;pageHref=target.href;
+          await sleep(550);
+          continue;
+        }catch(error){
+          pageFailure="A próxima página exige navegação que não pôde ser verificada automaticamente ("+error.message+").";
+          break;
+        }
+      }
+      if(target&&target.origin!==initial.origin){
+        pageFailure="Paginação apontou para outro domínio: coleta interrompida por segurança.";
+        break;
+      }
+      // JavaScript SPA pagination: use the portal's own visible next-page control.
+      if(doc!==document){
+        pageFailure="Página seguinte sem URL verificável após paginação por HTML.";break;
+      }
+      try{next.click();}
+      catch(error){pageFailure="Erro ao avançar página: "+error.message;break;}
+      let advanced=false;
+      for(let attempt=0;attempt<30&&!state.cancel;attempt++){
+        await sleep(400);
+        const latest=core.parseCapesPage(document,location.href);
+        if(latest.records.length&&latest.records.map(x=>x.identifier).join("|")!==previousSignature){
+          advanced=true;doc=document;pageHref=location.href;break;
+        }
+      }
+      if(!advanced&&!state.cancel){
+        pageFailure="O Portal não atualizou os resultados após avançar (12 segundos).";
+        break;
+      }
+      await sleep(550);
+    }
+    const incomplete=state.cancel||!!pageFailure||haveMore||(total!==null&&rows.length<total);
+    const note="CAPES: "+rows.length+" registros únicos de "+pageCount+" páginas; total indicado na interface: "+
+      (total??"não identificado")+"; método: leitura da busca no navegador e paginação visível."+
+      (pageFailure?" Limitação: "+pageFailure:"")+
+      " A equivalência da busca, dos filtros e dos metadados não foi validada independentemente. Nenhum PDF restrito acessado.";
+    if(!rows.length)throw Error(pageFailure||"CAPES: nenhum cartão bibliográfico reconhecido. Não foram fabricados registros.");
+    return {truncated:incomplete,retrieval_mode:"capes_visible_search_pages_experimental",reported_total:total,note};
+  }
   async function collectIEEE(max,rows,seen) {
     const found=core.parseIEEEPage(document);
     if(!found.records.length)throw Error('IEEE: nenhum cartão de resultado reconhecido. Abra a busca com resultados carregados ou use a exportação nativa.');
@@ -648,9 +763,8 @@
   }
   async function run(quick = false) {
     if (state.running) return;
-    if (provider === "capes") { openCapesFile(); return; }
     state.cancel = false;
-    const max = quick ? 200 : Number($("max").value);
+    const max = provider==="capes" ? Number($("max").value) : quick ? 200 : Number($("max").value);
     const format = quick ? "csv" : $("format").value;
     const withPdfs = !quick && provider === "arxiv" && $("pdf").checked;
     const rows = [], seen = new Set();
@@ -660,7 +774,7 @@
     setStatus("Iniciando coleta…");
     try {
       const collector = {
-        ieee:collectIEEE,arxiv: collectArxiv, europepmc: collectEuropePmc, pubmed: collectPubmed,
+        capes:collectCapes,ieee:collectIEEE,arxiv: collectArxiv, europepmc: collectEuropePmc, pubmed: collectPubmed,
         openalex: collectOpenAlex, crossref: collectCrossref, semanticscholar: collectSemanticScholar,
         scielo:collectSciELO,doaj:collectDoaj,biorxiv:collectPreprints,medrxiv:collectPreprints
       }[provider];
@@ -751,6 +865,30 @@
       setBusy(false);
     }
   }
+  $("capes-diagnostic").addEventListener("click",()=>{
+    if(provider!=="capes")return;
+    const safeContext=strategy();
+    const selectors=["main","[data-testid*='result' i]","[class*='result' i]","[class*='resultado' i]",
+      "[class*='pagin' i]","article","h3","nav","button[aria-label]"];
+    const details=selectors.map(selector=>{
+      let nodes=[];
+      try{nodes=Array.from(document.querySelectorAll(selector));}catch{}
+      return {selector,count:nodes.length,samples:nodes.slice(0,5).map(node=>({
+        tag:node.tagName||"",classes:String(node.className||"").slice(0,220),
+        role:node.getAttribute("role")||"",aria_label:node.getAttribute("aria-label")||"",
+        text:core.clean(node.textContent).slice(0,180),
+        parent_classes:String(node.parentElement?.className||"").slice(0,160)
+      }))};
+    });
+    const parsed=core.parseCapesPage(document,location.href);
+    const out={generator:"DELTA Research Collector CAPES DOM diagnostic 0.5.6",
+      captured_at:new Date().toISOString(),source:"capes",
+      sanitized_search_url:safeContext.url,visible_records_recognized:parsed.records.length,
+      reported_total:parsed.total,selectors:details,
+      note:"Diagnóstico estrutural do HTML visível. Revise o texto antes de compartilhar: pode incluir títulos e termos de busca. Não inclui cookies nem credenciais."};
+    saveText(JSON.stringify(out,null,2),"DELTA_capes_diagnostico_"+new Date().toISOString().slice(0,10)+".json","application/json;charset=utf-8");
+    $("capes-import-status").textContent="Diagnóstico estrutural salvo. Reveja o JSON antes de compartilhar.";
+  });
   $("capes-import-run").addEventListener("click",openCapesFile);
   $("capes-file").addEventListener("change",()=>void importCapesFile());
   $('strategy-export').addEventListener('click',()=>saveText(JSON.stringify(strategy(),null,2),`DELTA_${provider}_estrategia.json`,'application/json;charset=utf-8'));

@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "DELTA Research Collector",
   "short_name": "DELTA Collector",
-  "version": "0.5.5",
-  "description": "11 fontes, importação de referências CAPES, matriz de triagem e biblioteca local.",
+  "version": "0.5.6",
+  "description": "Coleta científica, CAPES experimental, triagem e auditoria bibliográfica.",
   "minimum_chrome_version": "109",
   "permissions": [
     "downloads",

@@ -10,7 +10,7 @@
     <a href="https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector/actions/workflows/tests.yml"><img alt="Testes no GitHub Actions" src="https://img.shields.io/github/actions/workflow/status/miscrapha-DELTA-IA/DELTA-Research-Collector/tests.yml?branch=main&label=tests" /></a>
     <a href="LICENSE"><img alt="Licença GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-147D84" /></a>
     <img alt="Chromium Manifest V3" src="https://img.shields.io/badge/Chromium-Manifest%20V3-092D52" />
-    <img alt="11 coletas e importação CAPES" src="https://img.shields.io/badge/coletas-11%20%2B%20CAPES-0FAAB4" />
+    <img alt="11 fontes e CAPES experimental" src="https://img.shields.io/badge/coletas-11%20%2B%20CAPES-0FAAB4" />
   </p>
   <p>
     <strong>🇧🇷 Português</strong> &nbsp;·&nbsp; <a href="README.en.md">🇺🇸 English</a> &nbsp;·&nbsp; <a href="README.es.md">🇪🇸 Español</a>
@@ -95,21 +95,28 @@ Além de CSV, RIS, BibTeX e JSON, a extensão agora exporta uma **matriz interat
 
 [Fluxo detalhado, interpretações e limitações](docs/REVIEW_MATRIX.md)
 
-## Portal de Periódicos CAPES — integração por arquivo (v0.5.5)
+## Portal de Periódicos CAPES — coleta no navegador (experimental, v0.5.6)
 
-O Portal CAPES permite exportar referências dos resultados em **RIS** e **BibTeX**. Primeiro, realize sua busca no site, selecione os itens desejados e utilize o comando de exportação oficial. Depois, na página do Portal, clique no botão **Importar CAPES** da extensão e selecione o arquivo RIS ou BibTeX.
+**Fluxo principal:** abra uma busca por assunto no Portal CAPES e clique em **Coletar busca**. O DELTA tenta ler os cartões de resultados visíveis, avançar pela paginação disponível na interface e reunir os registros até o limite selecionado (500 por padrão no Portal). A exportação pode ser CSV, RIS, BibTeX, JSON ou matriz de triagem HTML. A biblioteca local e a auditoria são opcionais.
 
-A extensão importa os metadados em sua biblioteca local (opcional), permite convertê-los para CSV, RIS, BibTeX e JSON e produzir a matriz visual HTML de triagem. O arquivo original é processado localmente; a auditoria registra seu nome, tamanho e SHA-256.
+Exemplo de auditoria: **456 resultados exibidos** no Portal não significam 456 registros recuperados. O DELTA registra separadamente total informado, quantidade de registros únicos extraídos, origem, método e eventuais falhas de paginação. Ao faltar resultados, a saída deve ser rotulada como **parcial**. Contagens iguais não confirmam identidade dos registros, filtros e ranking.
 
-**Limitações:** esta etapa não coleta automaticamente os resultados do site, não pagina no Portal, não faz login via CAFe e não acessa arquivos restritos. A identidade e a completude dos registros em relação à busca original não foram verificadas: total igual não é prova de equivalência de filtros, termos ou ordenação. Guarde o arquivo RIS/BibTeX original para conferência.
+**Limites importantes desta fase:**
 
-Esta é uma integração **experimental, independente e não homologada pela CAPES**. O parser requer avaliação com exportações reais da interface atual. A partir da v0.5.4, o importador está integrado ao núcleo da extensão. **Correção v0.5.5:** tipos BibTeX em português com acentos, como `@Revisão`, passam a ser reconhecidos; uma verificação confronta o número de entradas declaradas com as processadas para impedir perdas silenciosas. Uma auditoria de arquivo real identificou 30 entradas BibTeX/RIS na CAPES, anteriormente reduzidas para 24 no BibTeX. Para aplicar a correção, substitua todos os arquivos da extensão, recarregue em `opera://extensions` e atualize a página do Portal.
+- A coleta automática é **experimental**, usa a página que o navegador já apresenta e seus controles de paginação. Não há API pública do Portal confirmada nem acesso privilegiado a bases/editoras.
+- A estrutura da interface CAPES atual não pôde ser testada externamente (acesso HTTP 403 ao HTML de busca). **Ainda não há confirmação de coleta completa de 456/456 no Opera.** Requer teste E2E com uma sessão de busca real.
+- Se a página usar paginação incompatível, recarregar fora do contexto do coletor ou não expuser campos como autores/resumo, o DELTA deve reportar a limitação. Não completa metadados inventados nem ignora páginas silenciosamente.
+- Em caso de falha, use **Diagnóstico da página CAPES** para gerar um JSON com seletores e elementos visíveis (confira seu conteúdo antes de compartilhar). Esse diagnóstico não copia cookies ou senhas.
+- A alternativa de **importar RIS/BibTeX oficial** continua disponível. Tipos Unicode como `@Revisão` foram corrigidos na v0.5.5.
+- A pesquisa pode ser realizada com seu acesso institucional normal (CAFe, IP ou VPN). A extensão não solicita credenciais, não contorna paywalls nem baixa texto completo protegido.
+
+**Independente e não homologada pela CAPES.** Preserve a URL, os parâmetros e o relatório de cobertura e confira uma amostra contra os resultados originais antes de usar os dados em estudo científico.
 
 ## Cobertura por base
 
 | Fonte | Estratégia de integração | Limitação a observar |
 |---|---|---|
-| **Portal CAPES** | Importação local de arquivo RIS/BibTeX exportado pelo usuário | Sem coleta automática, autenticação ou paginação do Portal |
+| **Portal CAPES** | Coleta experimental dos cartões/páginas do navegador; RIS/BibTeX oficial alternativo | Paginação e completude não validadas em sessão real; pode haver metadados ausentes |
 | **IEEE Xplore** | Cartões visíveis e importação de CSV nativo | Coleta direta parcial; não pagina automaticamente |
 | **arXiv** | Resultados HTML paginados | Alterações no HTML podem afetar a coleta |
 | **Europe PMC** | API oficial | Campos dependem dos registros disponíveis |
@@ -122,7 +129,7 @@ Esta é uma integração **experimental, independente e não homologada pela CAP
 | **bioRxiv** | API por intervalo de datas | Filtro textual local não equivale à busca do site |
 | **medRxiv** | API por intervalo de datas | Filtro textual local não equivale à busca do site |
 
-**11 adaptadores de coleta + importação CAPES não equivalem a buscas exaustivas.** As estratégias de extração diferem; nenhuma base deve ser considerada validada para revisão sistemática apenas pela presença nesta tabela.
+**11 adaptadores anteriores + coleta experimental CAPES não equivalem a buscas exaustivas.** As estratégias de extração diferem; nenhuma base deve ser considerada validada para revisão sistemática apenas pela presença nesta tabela.
 
 ## Reprodutibilidade e integridade científica
 

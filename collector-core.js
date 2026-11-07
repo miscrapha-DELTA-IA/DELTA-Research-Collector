@@ -697,3 +697,138 @@
   if (globalThis.DELTA_CORE) globalThis.DELTA_CORE.parseCapesNativeExport = parseNativeExport;
 })();
 
+
+// Browser-page CAPES collector: only reads metadata already rendered in the user's page.
+// No CAPES API calls, authentication interception, credential handling or restricted PDFs.
+(() => {
+  "use strict";
+  const core = globalThis.DELTA_CORE;
+  if (!core) return;
+  const clean = core.clean;
+  const hash = input => {
+    let n=2166136261; const str=String(input);
+    for(let i=0;i<str.length;i++)n=Math.imul(n^str.charCodeAt(i),16777619);
+    return (n>>>0).toString(16).padStart(8,"0");
+  };
+  const unique = items => [...new Set(items)];
+  const field = (node,selectors) => {
+    for(const selector of selectors){
+      const target=node.querySelector?.(selector);
+      const value=clean(target?.textContent);
+      if(value)return value;
+    }
+    return "";
+  };
+  const validLink = (value,origin) => {
+    if(!value)return "";
+    try{
+      const parsed=new URL(value,origin);
+      if(!["http:","https:"].includes(parsed.protocol)||parsed.username||parsed.password)return "";
+      if(/^(?:#|javascript:)/i.test(value))return "";
+      return parsed.href;
+    }catch{return "";}
+  };
+  function parseCapesPage(doc, origin="https://www.periodicos.capes.gov.br/") {
+    const root=doc.querySelector?.("main,[role='main'],#content,.main-content")||doc.body||doc;
+    const selectors=[
+      "[data-testid*='result' i]",
+      "[class*='search-result' i]",
+      "[class*='result-item' i]",
+      "[class*='result-card' i]",
+      "[class*='item-resultado' i]",
+      "[class*='resultado-busca' i]",
+      "[class*='searchResult']",
+      ".resultados article",
+      ".results article",
+      ".results-list > li",
+      "article"
+    ];
+    const candidates=[];
+    const found=new Set();
+    for(const selector of selectors) {
+      for(const node of Array.from(root.querySelectorAll?.(selector)||[])){
+        if(found.has(node)||node.id==="delta-research-collector-root"||node.closest?.("#delta-research-collector-root"))continue;
+        found.add(node);
+        candidates.push(node);
+      }
+    }
+    // CAPES templates may have titles without standardized card classes.
+    // These heading fallbacks still require a result-like parent and supporting metadata.
+    if(!candidates.length){
+      for(const heading of Array.from(root.querySelectorAll?.("h2,h3,h4")||[])){
+        const parent=heading.closest?.("article,li,[class*='card' i],[class*='result' i]");
+        if(parent&&!found.has(parent)){found.add(parent);candidates.push(parent);}
+      }
+    }
+    const records=[],seen=new Set();
+    for(const node of candidates){
+      const txt=clean(node.textContent);
+      if(!txt||txt.length>12000)continue;
+      const titleNode=node.querySelector?.(
+        "[data-testid*='title' i], [class*='article-title' i], [class*='result-title' i], [class*='item-title' i], [class*='titulo' i], h3 a, h4 a, h2 a, h3, h4, h2"
+      );
+      let title=clean(titleNode?.textContent);
+      if(!title){
+        const anchor=Array.from(node.querySelectorAll?.("a[href]")||[])
+          .find(a=>clean(a.textContent).length>=12&&!/^(acesse|disponibilidade|pdf|exportar|saiba mais|details?|plumx)/i.test(clean(a.textContent)));
+        title=clean(anchor?.textContent);
+      }
+      if(title.length<12||title.length>450||/^(?:\d+\s+)?(?:resultados?|filtros?|buscar|exportar|ordenar|selecionar tudo|próxim[ao] página)$/i.test(title))continue;
+      const doiMatch=txt.match(/\b10\.\d{4,9}\/[^\s<>"'()[\]]+/i);
+      const linkDoi=Array.from(node.querySelectorAll?.('a[href*="doi.org/"]')||[])[0]?.getAttribute?.("href")||"";
+      const doi=core.normalizeDoi(doiMatch?.[0]||linkDoi);
+      const reliableDoi=/^10\.\d{4,9}\/\S+$/i.test(doi)?doi:"";
+      const titleLink=titleNode?.getAttribute?.("href") ||
+        titleNode?.querySelector?.("a[href]")?.getAttribute?.("href") ||
+        node.querySelector?.("a[href*='doi.org/'],a[href*='/acervo/']")?.getAttribute?.("href") || "";
+      const article_url=validLink(titleLink,origin)||(reliableDoi?"https://doi.org/"+reliableDoi:"");
+      const year=txt.match(/\b(?:19|20)\d{2}\b/)?.[0]||"";
+      const authors=field(node,["[class*='author' i]","[class*='autor' i]","[data-testid*='author' i]"])
+        .split(/\s*;\s*|\s+\band\b\s+|\s+\be\b\s+/i).map(clean).filter(Boolean).slice(0,45);
+      const abstract=field(node,["[class*='abstract' i]","[class*='resumo' i]"]);
+      const journal=field(node,["[class*='journal' i]","[class*='periodico' i]","[class*='revista' i]"]);
+      const idFromElement=node.getAttribute?.("data-id")||node.getAttribute?.("data-record-id")||"";
+      const identifier=reliableDoi||clean(idFromElement)||(article_url && article_url!==origin?article_url:"")||
+        "page:"+hash([title.toLocaleLowerCase(),year,authors[0]||""].join("|"));
+      const dedupKey=reliableDoi?"doi:"+reliableDoi:"id:"+identifier;
+      if(seen.has(dedupKey))continue;seen.add(dedupKey);
+      records.push({
+        source:"Portal CAPES",identifier,title,authors,year,date:"",doi:reliableDoi,abstract,article_url,pdf_url:"",journal,
+        access_status:"unknown",
+        access_evidence:"CAPES: metadados visíveis na página da busca; acesso completo não verificado",
+        access_url:""
+      });
+    }
+    // Count is an unverified UI claim until compared to the extracted record IDs.
+    const text=clean(root.textContent).slice(0,12000);
+    const matches=[...text.matchAll(/\b(\d{1,3}(?:[.\s]\d{3})+|\d+)\s+resultados\b/gi)]
+      .map(x=>Number(x[1].replace(/[.\s]/g,""))).filter(x=>Number.isSafeInteger(x)&&x>=0);
+    const total=matches.length?Math.max(...matches):null;
+    return {records,total,candidates:candidates.length,mode:"visible_page_dom"};
+  }
+  function findCapesNextPage(doc) {
+    const scopes=Array.from(doc.querySelectorAll?.(
+      "nav[aria-label*='pagin' i], [role='navigation'][aria-label*='pagin' i], .pagination, [class*='pagin' i]"
+    )||[]);
+    for(const scope of scopes){
+      const controls=Array.from(scope.querySelectorAll?.("a,button,[role='button']")||[]);
+      const usable=el=>!el.disabled&&el.getAttribute?.("aria-disabled")!=="true"&&
+        !/\bdisabled\b/i.test(el.className||"")&&!el.hasAttribute?.("disabled");
+      for(const el of controls){
+        if(!usable(el))continue;
+        const label=clean([el.textContent,el.getAttribute?.("aria-label"),el.getAttribute?.("title"),el.getAttribute?.("rel")].join(" "));
+        if(/(?:pr[oó]xim[ao]|next|seguinte|avançar|chevron-right)/i.test(label)||/^(?:>|»|→)$/.test(label))
+          return el;
+      }
+      const selected=controls.find(el=>el.getAttribute?.("aria-current")==="page"||/\bactive\b/i.test(el.className||""));
+      const current=Number(clean(selected?.textContent));
+      if(Number.isSafeInteger(current)&&current>0){
+        const next=controls.find(el=>usable(el)&&clean(el.textContent)===String(current+1));
+        if(next)return next;
+      }
+    }
+    return null;
+  }
+  core.parseCapesPage=parseCapesPage;
+  core.findCapesNextPage=findCapesNextPage;
+})();
