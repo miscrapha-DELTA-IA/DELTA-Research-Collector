@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "DELTA Research Collector",
   "short_name": "DELTA Collector",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "11 fontes, importação de referências CAPES, matriz de triagem e biblioteca local.",
   "minimum_chrome_version": "109",
   "permissions": [
@@ -72,7 +72,6 @@
       "js": [
         "collector-core.js",
         "review-matrix.js",
-        "capes-import.js",
         "content.js"
       ],
       "run_at": "document_idle"
