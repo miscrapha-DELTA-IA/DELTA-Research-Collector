@@ -59,5 +59,5 @@ assert.deepEqual(importedBib.records.map(x=>x.identifier),importedRis.records.ma
 assert.deepEqual(importedBib.records.map(x=>x.title),importedRis.records.map(x=>x.title));
 assert.deepEqual(importedBib.records.map(x=>x.doi),importedRis.records.map(x=>x.doi));
 assert.equal(new Set(importedBib.records.map(x=>x.identifier)).size,30);
-assert.throws(()=>parse("@🧬{W1,\ntitle={Unknown biomedical article}\n}","unknown.bib"),/inconsistência/);
+assert.throws(()=>parse(nativeBib+"\n@🧬{W1,\ntitle={Unknown biomedical article}\n}","unknown.bib"),/inconsistência/);
 console.log("PASS: CAPES 30-record Unicode-type regression + BibTeX/RIS parity.");
