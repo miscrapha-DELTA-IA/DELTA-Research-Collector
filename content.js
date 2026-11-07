@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.4.0. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.4.1. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -70,6 +70,14 @@
         <input id="delta-keywords" type="text" maxlength="180" placeholder="Ex.: single-cell" />
         <p class="note">API por período, não equivale à busca por palavras-chave do site. Varredura limitada a 2.000 registros.</p>
       </div>
+      <div class="special" id="delta-ieee-import" hidden>
+        <strong style="font-size:12px">IEEE Xplore — importar todos os resultados</strong>
+        <p class="note">O botão rápido baixa somente os artigos desta página (normalmente 25). Para obter toda a busca, use <strong>Export Results → CSV</strong> no IEEE, depois selecione esse arquivo aqui. O arquivo é processado localmente.</p>
+        <label for="delta-ieee-file">CSV exportado pelo IEEE</label><input id="delta-ieee-file" type="file" accept=".csv,text/csv,text/plain" style="width:100%;font-size:12px"/>
+        <label for="delta-ieee-total">Total de resultados encontrados no IEEE (opcional)</label><input id="delta-ieee-total" type="number" min="1" max="100000" placeholder="Ex.: 512" style="width:100%;min-height:40px;background:#1a324a;color:#fff;border:1px solid #38536d;border-radius:9px;padding:8px"/>
+        <div class="minirow"><button class="mini" id="delta-ieee-import-run">Importar e exportar no formato escolhido</button></div>
+        <div class="status" id="delta-ieee-import-status" role="status" aria-live="polite"></div>
+      </div>
       <div class="special" id="delta-strategy">
         <strong style="font-size:12px">Estratégia da busca</strong>
         <div class="status" id="delta-query-preview"></div><div class="status" id="delta-filter-preview"></div>
@@ -117,6 +125,8 @@
   if (provider === "semanticscholar") $("max").querySelector('option[value="2000"]').disabled = true;
   $("pdf-label").hidden = provider !== "arxiv";
   $("doaj-options").hidden = provider !== 'doaj';
+  $("ieee-import").hidden = provider !== "ieee";
+  if(provider==="ieee"){$("one-click").innerHTML='<span aria-hidden="true">↓</span> SOMENTE ESTA PÁGINA';$("one-click").title="IEEE: coleta somente a página atual (normalmente 25). Para a busca inteira use Export Results → CSV.";}
   $("preprint-options").hidden = !['biorxiv','medrxiv'].includes(provider);
   const today = new Date();
   const ago = new Date(today.getTime()-7*86400000);
@@ -141,7 +151,7 @@
     $("one-click").disabled = busy;
     $("cancel").disabled = !busy;
     $("start").textContent = busy ? "Coletando..." : "Baixar resultados";
-    $("one-click").innerHTML = busy ? "◌ COLETANDO..." : '<span aria-hidden="true">↓</span> BAIXAR BUSCA';
+    $("one-click").innerHTML = busy ? "◌ COLETANDO..." : (provider==="ieee"?'<span aria-hidden="true">↓</span> SOMENTE ESTA PÁGINA':'<span aria-hidden="true">↓</span> BAIXAR BUSCA');
   }
   function message(payload) {
     return new Promise((resolve, reject) => {
@@ -184,19 +194,20 @@
     shadow.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
-  function exportRows(rows, format, max, cancelled, truncated, collectorNote="", retrievalMode="provider_adapter") {
+  function exportRows(rows, format, max, cancelled, truncated, collectorNote="", retrievalMode="provider_adapter", extraMetadata={}) {
     const now = new Date();
     const timestamp = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const file = `DELTA_${provider}_${timestamp}.${format === "bibtex" ? "bib" : format}`;
     const context=strategy();
     const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.4.0",
+      generator: "DELTA Research Collector 0.4.1",
       source: provider, original_search_url: context.url, exported_at: now.toISOString(),
       search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
       retrieval_mode:retrievalMode,collector_note:collectorNote,
       access_legend:{open:'Cópia aberta identificada',publisher_restricted:'Editora informa restrição',no_open_copy_found:'Cópia OA não localizada; paywall não comprovado',unknown:'Não verificado'},
       exported_count: rows.length, requested_limit: max, cancelled, truncated,
+      ...extraMetadata,
       note: "Coleta limitada à quantidade solicitada, não representa necessariamente a base inteira."
     };
     const bibComment = `% Search URL: ${context.url.replace(/[\r\n]/g, "")}\n% Query: ${context.query.replace(/[\r\n]/g, "")}\n% Collected at: ${now.toISOString()}\n`;
@@ -224,7 +235,7 @@
       const data=await refreshLibrary();
       if(!data.records.length){$('library-info').textContent='Biblioteca vazia. Faça uma coleta com armazenamento local ativado.';return;}
       const now=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-      const text=format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.4.0',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      const text=format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.4.1',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
       saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
       $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
@@ -513,6 +524,44 @@
     finally { setBusy(false); }
   }
   $('strategy-export').addEventListener('click',()=>saveText(JSON.stringify(strategy(),null,2),`DELTA_${provider}_estrategia.json`,'application/json;charset=utf-8'));
+  async function importIEEECSV(){
+    if(provider!=="ieee"||state.running)return;
+    const file=$("ieee-file").files?.[0];
+    if(!file){$("ieee-import-status").textContent="Selecione primeiro o arquivo CSV exportado pelo IEEE.";return;}
+    if(file.size>20_000_000){$("ieee-import-status").textContent="Arquivo maior que 20 MB. Divida a exportação.";return;}
+    const btn=$("ieee-import-run");btn.disabled=true;
+    $("ieee-import-status").textContent="Lendo CSV local e conferindo os metadados…";
+    try{
+      const parsed=core.parseIEEEExportCsv(await file.text());
+      const expected=Number($("ieee-total").value)||null;
+      if(expected!==null&&(!Number.isSafeInteger(expected)||expected<1||expected>100000))throw Error("Total informado inválido.");
+      const count=parsed.imported;
+      const complete=expected!==null&&count===expected;
+      const shortfall=expected!==null&&count<expected;
+      const partial=!complete;
+      const coverage=expected===null?null:Number((count/expected*100).toFixed(2));
+      const mode="ieee_official_csv_import";
+      const note="IEEE CSV oficial: "+count+" registros válidos; "+parsed.skipped+" registros ignorados; total exibido na pesquisa: "+(expected??"não informado")+"; cobertura: "+(coverage??"não verificada")+"%. Nenhum PDF restrito acessado.";
+      const format=$("format").value;
+      const extra={original_import_file:file.name,original_import_size:file.size,imported_rows:count,skipped_rows:parsed.skipped,
+        expected_search_total:expected,coverage_percent:coverage,
+        completeness:complete?"count_match":expected===null?"not_verified":shortfall?"partial_count":"count_mismatch"};
+      const records=exportRows(parsed.records,format,count,false,shortfall,note,mode,extra);
+      let saved="";
+      if($("local").checked){
+        const ctx=strategy();
+        try{
+          const result=await message({type:"DELTA_LIBRARY_ADD",records,run:{source:provider,url:ctx.url,query:ctx.query,parameters:ctx.parameters,retrieval_mode:mode,partial,note}});
+          saved=" · biblioteca: +"+result.added+" novos, "+result.merged+" combinados"+(result.dropped?", "+result.dropped+" não armazenados":"");
+          refreshLibrary().catch(()=>{});
+        }catch(e){saved=" · NÃO salvo na biblioteca: "+e.message;}
+      }
+      $("ieee-import-status").textContent=count+" artigos exportados em "+format.toUpperCase()+
+        (expected?" de "+expected+" esperados ("+coverage+"%)":"; total original não informado")+saved+".";
+    }catch(e){$("ieee-import-status").textContent="Falha na importação: "+e.message;}
+    finally{btn.disabled=false;}
+  }
+  $("ieee-import-run").addEventListener("click",importIEEECSV);
   $('config').addEventListener('click',showStrategy);
   $('refresh').addEventListener('click',()=>refreshLibrary().catch(e=>$('library-info').textContent=e.message));
   for(const form of ['ris','bib','csv','json']) $('library-'+form).addEventListener('click',()=>exportLibrary(form));
