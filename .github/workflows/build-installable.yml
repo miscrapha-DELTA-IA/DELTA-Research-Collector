@@ -1,0 +1,48 @@
+name: Build installable extension
+on:
+  push:
+    branches: [main]
+    paths:
+      - manifest.json
+      - background.js
+      - collector-core.js
+      - content.js
+      - 'icons/**'
+      - '.github/workflows/build-installable.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate sources
+        run: |
+          node --check background.js
+          node --check collector-core.js
+          node --check content.js
+          node tests/test-core.cjs
+          node tests/test-background.cjs
+          node tests/test-context.cjs
+      - name: Package unpacked Chromium extension
+        run: |
+          python3 - <<'PY'
+          import json,zipfile
+          from pathlib import Path
+          base=Path('.')
+          version=json.loads((base/'manifest.json').read_text())['version']
+          name=f'DELTA-Research-Collector_v{version}_INSTALAR.zip'
+          files=[base/'manifest.json',base/'background.js',base/'collector-core.js',base/'content.js',*sorted((base/'icons').glob('*.png'))]
+          with zipfile.ZipFile(name,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
+              for f in files:z.write(f,f.as_posix())
+          print(name)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DELTA-Research-Collector-v0.4.0-INSTALLER
+          path: DELTA-Research-Collector_v0.4.0_INSTALAR.zip
+          if-no-files-found: error
