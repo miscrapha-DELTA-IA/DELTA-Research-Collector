@@ -31,6 +31,7 @@ jobs:
           node tests/test-background.cjs
           node tests/test-context.cjs
           node tests/test-review.cjs
+          node tests/test-ui.cjs
       - name: Package unpacked Chromium extension
         run: |
           python3 - <<'PY'
