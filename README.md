@@ -77,6 +77,22 @@ flowchart LR
 A coleta direta do IEEE é baseada nos **cartões visíveis na página**, não nos resultados de todas as páginas. Se o IEEE mostrar 512 resultados e a extensão recuperar aproximadamente 25, a coleta é **parcial**. Para grandes conjuntos, utilize a exportação **CSV nativa do IEEE Xplore** e importe esse arquivo no painel do DELTA. Informe o total esperado para conferir a contagem. A correspondência numérica, por si só, não valida a exatidão de todos os metadados.
 </details>
 
+## Matriz visual de revisão — nova na v0.5.0
+
+Além de CSV, RIS, BibTeX e JSON, a extensão agora exporta uma **matriz interativa em HTML que funciona offline**. Ela foi criada para triagem manual de muitos artigos sem percorrer uma planilha extensa e difícil de ler.
+
+- **Leitura legível:** títulos destacados, resumos expansíveis, autoria, ano, DOI e links para o artigo.
+- **Filtros úteis:** texto livre, fonte, evidência de acesso, decisão, ausência de DOI ou resumo.
+- **Triagem documentada:** marcar **Incluir / Excluir / Dúvida / Pendente** e registrar motivos e notas.
+- **Reutilização:** exportar o CSV anotado ou salvar/reimportar as decisões em JSON.
+- **Auditoria visível:** contagens, cobertura e avisos sobre filtros ou coleta parcial.
+
+**Como usar:** abra a busca, informe (se souber) o total exibido pela base no campo *Auditoria de cobertura*, selecione **Matriz visual interativa (HTML)** e faça a coleta. Abra o HTML baixado no navegador. Para exportar uma biblioteca já acumulada, use **Biblioteca → Matriz visual**.
+
+> **Nota:** a concordância de totais não comprova identidade dos registros nem reprodução de filtros e ranking. O relatório é local e não envia suas decisões para serviços DELTA. **Exporte as anotações antes de fechar o arquivo.**
+
+[Fluxo detalhado, interpretações e limitações](docs/REVIEW_MATRIX.md)
+
 ## Cobertura por base
 
 | Fonte | Estratégia de integração | Limitação a observar |
