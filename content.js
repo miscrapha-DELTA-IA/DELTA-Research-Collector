@@ -149,7 +149,8 @@
       </div>
       <div id="delta-capes-action" class="delta-ieee-action" hidden>
         <input id="delta-capes-file" type="file" accept=".ris,.bib,.bibtex,text/plain" hidden aria-label="Selecionar RIS ou BibTeX exportado pelo Portal CAPES" />
-        <button class="mini" type="button" id="delta-capes-import-run">Importar RIS/BibTeX da CAPES</button>
+        <button class="mini" type="button" id="delta-capes-import-run">Alternativa: importar RIS/BibTeX oficial</button>
+        <button class="mini" type="button" id="delta-capes-diagnostic">Diagnóstico da página CAPES</button>
         <div class="status" id="delta-capes-import-status" role="status" aria-live="polite"></div>
       </div>
       <div class="special" id="delta-strategy">
@@ -864,6 +865,30 @@
       setBusy(false);
     }
   }
+  $("capes-diagnostic").addEventListener("click",()=>{
+    if(provider!=="capes")return;
+    const safeContext=strategy();
+    const selectors=["main","[data-testid*='result' i]","[class*='result' i]","[class*='resultado' i]",
+      "[class*='pagin' i]","article","h3","nav","button[aria-label]"];
+    const details=selectors.map(selector=>{
+      let nodes=[];
+      try{nodes=Array.from(document.querySelectorAll(selector));}catch{}
+      return {selector,count:nodes.length,samples:nodes.slice(0,5).map(node=>({
+        tag:node.tagName||"",classes:String(node.className||"").slice(0,220),
+        role:node.getAttribute("role")||"",aria_label:node.getAttribute("aria-label")||"",
+        text:core.clean(node.textContent).slice(0,180),
+        parent_classes:String(node.parentElement?.className||"").slice(0,160)
+      }))};
+    });
+    const parsed=core.parseCapesPage(document,location.href);
+    const out={generator:"DELTA Research Collector CAPES DOM diagnostic 0.5.6",
+      captured_at:new Date().toISOString(),source:"capes",
+      sanitized_search_url:safeContext.url,visible_records_recognized:parsed.records.length,
+      reported_total:parsed.total,selectors:details,
+      note:"Diagnóstico estrutural do HTML visível. Revise o texto antes de compartilhar: pode incluir títulos e termos de busca. Não inclui cookies nem credenciais."};
+    saveText(JSON.stringify(out,null,2),"DELTA_capes_diagnostico_"+new Date().toISOString().slice(0,10)+".json","application/json;charset=utf-8");
+    $("capes-import-status").textContent="Diagnóstico estrutural salvo. Reveja o JSON antes de compartilhar.";
+  });
   $("capes-import-run").addEventListener("click",openCapesFile);
   $("capes-file").addEventListener("change",()=>void importCapesFile());
   $('strategy-export').addEventListener('click',()=>saveText(JSON.stringify(strategy(),null,2),`DELTA_${provider}_estrategia.json`,'application/json;charset=utf-8'));
