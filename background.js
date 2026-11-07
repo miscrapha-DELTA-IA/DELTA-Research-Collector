@@ -1,4 +1,4 @@
-/* DELTA Research Collector v0.4.0 • GPL-3.0-or-later. */
+/* DELTA Research Collector v0.5.0 • GPL-3.0-or-later. */
 "use strict";
 function allowedFetch(uri) {
   let u;
@@ -103,7 +103,7 @@ chrome.action.onClicked.addListener(async tab => {
   const send=()=>new Promise(resolve=>chrome.tabs.sendMessage(tab.id,{type:'DELTA_TOGGLE'},()=>resolve(!chrome.runtime.lastError)));
   if(await send())return;
   try {
-    await chrome.scripting.executeScript({target:{tabId:tab.id},files:['collector-core.js','content.js']});
+    await chrome.scripting.executeScript({target:{tabId:tab.id},files:['collector-core.js','review-matrix.js','content.js']});
     if(await send())return;
     await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>{
       const id='delta-notice';document.getElementById(id)?.remove();
