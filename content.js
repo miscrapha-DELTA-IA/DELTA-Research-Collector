@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.3.0. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.4.0. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -70,6 +70,12 @@
         <input id="delta-keywords" type="text" maxlength="180" placeholder="Ex.: single-cell" />
         <p class="note">API por período, não equivale à busca por palavras-chave do site. Varredura limitada a 2.000 registros.</p>
       </div>
+      <div class="special" id="delta-strategy">
+        <strong style="font-size:12px">Estratégia da busca</strong>
+        <div class="status" id="delta-query-preview"></div><div class="status" id="delta-filter-preview"></div>
+        <button class="mini" id="delta-strategy-export">Exportar estratégia JSON</button>
+      </div>
+      <label class="check" id="delta-oa-label"><input type="checkbox" id="delta-oa"/><span>Verificar cópias abertas por DOI via OpenAlex (até 20; envia os DOIs).</span></label>
       <label class="check" id="delta-local-label"><input type="checkbox" id="delta-local" checked/><span>Adicionar registros à biblioteca local para deduplicação entre fontes (por DOI).</span></label>
       <label class="check" id="delta-pdf-label"><input type="checkbox" id="delta-pdf" /><span>Também solicitar PDFs do arXiv (máximo 20 por coleta).</span></label>
       <p class="note" id="delta-note">Até 2.000 registros por operação. Filtros não traduzidos serão bloqueados ou sinalizados. Respeita intervalos entre requisições.</p>
@@ -91,6 +97,7 @@
   document.documentElement.append(shell);
   const $ = name => shadow.getElementById(`delta-${name}`);
   const providers = {
+    ieee: ["IEEE Xplore", "Apenas cartões visíveis nesta página. Exportação parcial; sem paginação automática."],
     arxiv: ["arXiv", "Preserva a URL avançada. Até 20 PDFs opcionais."],
     europepmc: ["Europe PMC", "API oficial. Metadados, resumos e links abertos quando disponíveis."],
     pubmed: ["PubMed", "NCBI ESearch + EFetch. Filtros laterais não traduzidos são bloqueados para evitar erros metodológicos."],
@@ -102,7 +109,10 @@
     biorxiv: ["bioRxiv", "Coleta por período e filtro local opcional. NÃO equivale aos resultados de busca do site."],
     medrxiv: ["medRxiv", "Coleta por período e filtro local opcional. NÃO equivale aos resultados de busca do site."]
   };
+  const strategy=()=>core.searchContext(location.href);
+  const showStrategy=()=>{$('query-preview').textContent='Busca: '+(strategy().query||'(não identificada na URL)');$('filter-preview').textContent='Parâmetros: '+Object.keys(strategy().parameters).length+' · filtros: '+Object.keys(strategy().filters).length;};
   $("source").textContent = `${providers[provider][0]} · resultados da busca atual`;
+  showStrategy();
   $("note").textContent = providers[provider][1];
   if (provider === "semanticscholar") $("max").querySelector('option[value="2000"]').disabled = true;
   $("pdf-label").hidden = provider !== "arxiv";
@@ -174,21 +184,26 @@
     shadow.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
-  function exportRows(rows, format, max, cancelled, truncated) {
+  function exportRows(rows, format, max, cancelled, truncated, collectorNote="", retrievalMode="provider_adapter") {
     const now = new Date();
     const timestamp = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const file = `DELTA_${provider}_${timestamp}.${format === "bibtex" ? "bib" : format}`;
-    const records = rows.map(r => ({ ...r, search_url: location.href, collected_at: now.toISOString() }));
+    const context=strategy();
+    const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.3.0",
-      source: provider, original_search_url: location.href, exported_at: now.toISOString(),
+      generator: "DELTA Research Collector 0.4.0",
+      source: provider, original_search_url: context.url, exported_at: now.toISOString(),
+      search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
+      retrieval_mode:retrievalMode,collector_note:collectorNote,
+      access_legend:{open:'Cópia aberta identificada',publisher_restricted:'Editora informa restrição',no_open_copy_found:'Cópia OA não localizada; paywall não comprovado',unknown:'Não verificado'},
       exported_count: rows.length, requested_limit: max, cancelled, truncated,
       note: "Coleta limitada à quantidade solicitada, não representa necessariamente a base inteira."
     };
-    const bibComment = `% Search URL: ${location.href.replace(/[\r\n]/g, "")}\n% Collected at: ${now.toISOString()}\n`;
+    const bibComment = `% Search URL: ${context.url.replace(/[\r\n]/g, "")}\n% Query: ${context.query.replace(/[\r\n]/g, "")}\n% Collected at: ${now.toISOString()}\n`;
     const text = format === "csv" ? core.toCsv(records) :
       format === "bibtex" ? bibComment + core.toBibtex(records) :
       format === "ris" ? core.toRis(records) : JSON.stringify({ metadata, records }, null, 2);
+    saveText(JSON.stringify(metadata,null,2),`DELTA_${provider}_${timestamp}_estrategia.json`,"application/json;charset=utf-8");
     saveText(text, file, format === "csv" ? "text/csv;charset=utf-8" : format === "bibtex" ? "application/x-bibtex;charset=utf-8" : format === "ris" ? "application/x-research-info-systems;charset=utf-8" : "application/json;charset=utf-8");
     return records;
   }
@@ -209,10 +224,40 @@
       const data=await refreshLibrary();
       if(!data.records.length){$('library-info').textContent='Biblioteca vazia. Faça uma coleta com armazenamento local ativado.';return;}
       const now=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-      const text=format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.3.0',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      const text=format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.4.0',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
       saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
       $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
+  }
+
+  async function collectIEEE(max,rows,seen) {
+    const found=core.parseIEEEPage(document);
+    if(!found.records.length)throw Error('IEEE: nenhum cartão de resultado reconhecido. Abra a busca com resultados carregados ou use a exportação nativa.');
+    for(const r of found.records){if(rows.length>=max)break;if(!seen.has(r.identifier)){seen.add(r.identifier);rows.push(r);}}
+    updateProgress(rows.length,max,'IEEE Xplore');
+    return {truncated:true,retrieval_mode:'visible_page_only',note:'IEEE: somente a página visível; não é exportação exaustiva.'};
+  }
+  async function checkOpenCopies(rows) {
+    const chosen=rows.filter(r=>r.doi&&!/^10\.48550\/arxiv\./i.test(r.doi)).slice(0,20);
+    let checked=0,errors=0;
+    for(const r of chosen){
+      if(state.cancel)break;
+      try{
+        const doi=core.normalizeDoi(r.doi);
+        if(!/^10\.\d{4,9}\/.+/.test(doi))continue;
+        const reply=await message({type:'DELTA_FETCH',url:'https://api.openalex.org/works/doi:'+encodeURI(doi)});
+        if(reply.status!==200){errors++;continue;}
+        const a=core.parseOpenAlexAccess(core.safeJsonParse(reply.text,'OpenAlex'));
+        if(a.status==='open'||r.access_status!=='publisher_restricted')r.access_status=a.status;
+        r.access_evidence=[r.access_evidence,a.evidence].filter(Boolean).join(' | ');
+        r.access_url=a.url||r.access_url||'';
+        r.access_checked_at=new Date().toISOString();
+        checked++;
+      }catch{errors++;}
+      setStatus('Verificando acesso aberto: '+checked+' registros; '+errors+' falhas.');
+      if(!state.cancel)await sleep(450);
+    }
+    return {checked,errors};
   }
   async function collectArxiv(max, rows, seen) {
     const u = new URL(location.href);
@@ -430,27 +475,28 @@
     const format = quick ? "csv" : $("format").value;
     const withPdfs = !quick && provider === "arxiv" && $("pdf").checked;
     const rows = [], seen = new Set();
-    let failure = null, truncated = false, collectorNote='';
+    let failure = null, truncated = false, collectorNote='',retrievalMode='provider_adapter';
     setPanel(true); setBusy(true);
     $("progress").max = max; $("progress").value = 0;
     setStatus("Iniciando coleta…");
     try {
       const collector = {
-        arxiv: collectArxiv, europepmc: collectEuropePmc, pubmed: collectPubmed,
+        ieee:collectIEEE,arxiv: collectArxiv, europepmc: collectEuropePmc, pubmed: collectPubmed,
         openalex: collectOpenAlex, crossref: collectCrossref, semanticscholar: collectSemanticScholar,
         scielo:collectSciELO,doaj:collectDoaj,biorxiv:collectPreprints,medrxiv:collectPreprints
       }[provider];
       const result = await collector(max, rows, seen);
       truncated = result.truncated;
-      collectorNote=result.note||'';
+      collectorNote=result.note||'';retrievalMode=result.retrieval_mode||'provider_adapter';
     } catch (error) { failure = error; }
     try {
       if (rows.length) {
-        const records=exportRows(rows, format, max, state.cancel || !!failure, truncated);
+        if(!quick&&$('oa').checked&&!state.cancel){const oa=await checkOpenCopies(rows);collectorNote+=' | OA consultados: '+oa.checked+'; falhas: '+oa.errors;}
+        const records=exportRows(rows, format, max, state.cancel || !!failure, truncated,collectorNote,retrievalMode);
         let stored='';
         if($('local').checked){
           try{
-            const r=await message({type:'DELTA_LIBRARY_ADD',records,run:{source:provider,url:location.href,partial:!!failure||state.cancel||truncated,note:collectorNote}});
+            const r=await message({type:'DELTA_LIBRARY_ADD',records,run:{source:provider,url:strategy().url,query:strategy().query,parameters:strategy().parameters,retrieval_mode:retrievalMode,partial:!!failure||state.cancel||truncated,note:collectorNote}});
             stored=` · biblioteca: +${r.added} novos, ${r.merged} combinados${r.dropped?`, ${r.dropped} fora do limite`:''}`;
           }catch(e){stored=` · NÃO salvos na biblioteca (${e.message})`;}
         }
@@ -466,6 +512,8 @@
     } catch (error) { setStatus(`Não foi possível gerar o arquivo: ${error.message}`, true); }
     finally { setBusy(false); }
   }
+  $('strategy-export').addEventListener('click',()=>saveText(JSON.stringify(strategy(),null,2),`DELTA_${provider}_estrategia.json`,'application/json;charset=utf-8'));
+  $('config').addEventListener('click',showStrategy);
   $('refresh').addEventListener('click',()=>refreshLibrary().catch(e=>$('library-info').textContent=e.message));
   for(const form of ['ris','bib','csv','json']) $('library-'+form).addEventListener('click',()=>exportLibrary(form));
   $('clear').addEventListener('click',async()=>{

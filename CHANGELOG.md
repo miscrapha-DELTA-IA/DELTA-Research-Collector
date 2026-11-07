@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Corrigido redirecionamento involuntário do ícone para arXiv.
+- IEEE Xplore experimental (cartões visíveis).
+- Estratégia JSON com expressão, filtros e proveniência.
+- Classificação de acesso, consulta opcional OpenAlex por DOI.
+
+
 All notable changes for the public repository are described here.
 
 ## [0.3.0] — 2026-11

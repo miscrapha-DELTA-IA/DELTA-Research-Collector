@@ -8,7 +8,7 @@
 
 Extensão experimental de código aberto para **Opera GX, Chrome e Edge** (Manifest V3).
 
-[![Versão](https://img.shields.io/badge/version-0.3.0-blue)](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector) [![Licença GPL--3.0](https://img.shields.io/badge/license-GPL--3.0--or--later-green)](LICENSE) [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-lightgrey)](manifest.json)
+[![Versão](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector) [![Licença GPL--3.0](https://img.shields.io/badge/license-GPL--3.0--or--later-green)](LICENSE) [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-lightgrey)](manifest.json)
 
 [English](README.en.md) · [Instalação](#instalação) · [Bases compatíveis](#bases-compatíveis) · [Limitações](#limitações-científicas)
 
@@ -17,7 +17,7 @@ Extensão experimental de código aberto para **Opera GX, Chrome e Edge** (Manif
 ## O que faz
 
 - **Um botão na página de resultados:** exporta metadados bibliográficos em **CSV, BibTeX, RIS** (importável no Zotero) e **JSON**.
-- **Dez fontes compatíveis**, com estratégias de coleta adaptadas a cada plataforma.
+- **Onze fontes compatíveis**, com estratégias de coleta adaptadas a cada plataforma.
 - **Biblioteca local unificada:** identifica DOIs repetidos entre bases e preserva as fontes originais.
 - **Histórico de coletas:** guarda URL, data, origem, contagens e indicação de resultados parciais.
 - **PDFs:** solicitação opcional de até 20 PDFs no arXiv. Outras bases podem fornecer links, sem download em lote.
@@ -30,7 +30,7 @@ Extensão experimental de código aberto para **Opera GX, Chrome e Edge** (Manif
 
 | Base | Coleta | Observação |
 |---|---|---|
-| arXiv | Resultados HTML paginados | PDFs opcionais, até 20 |
+| IEEE Xplore | Cartões visíveis nesta página | Sem API privada ou paginação, sempre parcial |\n| arXiv | Resultados HTML paginados | PDFs opcionais, até 20 |
 | Europe PMC | API oficial | Metadados e resumos disponíveis |
 | PubMed | NCBI ESearch + EFetch | Bloqueia filtros laterais não reproduzíveis |
 | OpenAlex | API oficial | Resumos quando disponíveis |
@@ -41,11 +41,17 @@ Extensão experimental de código aberto para **Opera GX, Chrome e Edge** (Manif
 | bioRxiv | API por intervalo de datas | Filtro textual local, não equivale à busca do site |
 | medRxiv | API por intervalo de datas | Filtro textual local, não equivale à busca do site |
 
+## Busca reprodutível e recuperabilidade
+
+A versão 0.4.0 abre o painel na **aba ativa**, inclusive no IEEE Xplore, sem redirecionar ao arXiv. Cada exportação produz um arquivo adicional `*_estrategia.json` com expressão, parâmetros, filtros codificados na URL, data, limite e modo de obtenção. Dados CSV/JSON incluem status de acesso, fonte da evidência e URL aberta quando disponível.
+
+O IEEE Xplore é **experimental**: sem chave da API oficial, somente os resultados visíveis são capturados e o conjunto é identificado como parcial. A consulta opcional via DOI ao OpenAlex identifica cópias abertas de até 20 artigos por operação. A ausência de OA não confirma paywall. Filtros que o site não codifica na URL exigem auditoria manual.
+
 ## Instalação
 
 **Opera GX** (procedimento semelhante em Chrome e Edge):
 
-1. Baixe o [ZIP instalável v0.3.0](dist/DELTA-Research-Collector_v0.3.0_INSTALAR.zip) e extraia tudo em uma pasta permanente.
+1. Baixe o [ZIP instalável v0.4.0](dist/DELTA-Research-Collector_v0.4.0_INSTALAR.zip) e extraia tudo em uma pasta permanente.
 2. Abra `opera://extensions` e ative **Modo do desenvolvedor**.
 3. Clique em **Carregar sem compactação** e escolha a pasta que contém `manifest.json` diretamente.
 4. Se já instalou uma versão anterior, desative-a para não exibir botões duplicados.

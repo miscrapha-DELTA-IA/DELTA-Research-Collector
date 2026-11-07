@@ -2,24 +2,27 @@
   "manifest_version": 3,
   "name": "DELTA Research Collector",
   "short_name": "DELTA Collector",
-  "version": "0.3.0",
-  "description": "Pesquisa científica: 10 fontes, deduplicação por DOI, biblioteca local, histórico, RIS/BibTeX/CSV/JSON.",
+  "version": "0.4.0",
+  "description": "Pesquisa científica: 11 fontes, estratégias reprodutíveis, acesso aberto e biblioteca local.",
   "minimum_chrome_version": "109",
   "permissions": [
     "downloads",
     "storage",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "activeTab",
+    "scripting"
   ],
   "host_permissions": [
     "https://arxiv.org/*",
     "https://www.ebi.ac.uk/europepmc/webservices/rest/*",
     "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/*",
-    "https://api.openalex.org/works*",
+    "https://api.openalex.org/*",
     "https://api.crossref.org/works*",
     "https://api.semanticscholar.org/graph/v1/paper/search*",
     "https://doaj.org/api/search/articles/*",
     "https://search.scielo.org/*",
-    "https://api.biorxiv.org/details/*"
+    "https://api.biorxiv.org/details/*",
+    "https://ieeexplore.ieee.org/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -54,7 +57,8 @@
         "https://biorxiv.org/*",
         "https://www.biorxiv.org/*",
         "https://medrxiv.org/*",
-        "https://www.medrxiv.org/*"
+        "https://www.medrxiv.org/*",
+        "https://ieeexplore.ieee.org/search/*"
       ],
       "js": [
         "collector-core.js",

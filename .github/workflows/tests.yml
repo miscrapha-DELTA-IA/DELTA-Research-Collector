@@ -27,3 +27,4 @@ jobs:
         run: |
           node tests/test-core.cjs
           node tests/test-background.cjs
+          node tests/test-context.cjs

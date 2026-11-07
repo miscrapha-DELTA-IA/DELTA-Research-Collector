@@ -1,7 +1,7 @@
-/* DELTA Research Collector, v0.3.0. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.4.0. GPL-3.0-or-later. */
 (() => {
   "use strict";
-  const fields = ["source", "identifier", "title", "authors", "year", "date", "doi", "abstract", "article_url", "pdf_url", "journal", "search_url", "collected_at", "sources"];
+  const fields = ["source", "identifier", "title", "authors", "year", "date", "doi", "abstract", "article_url", "pdf_url", "journal", "search_url", "search_query", "search_parameters", "access_status", "access_evidence", "access_url", "access_checked_at", "collected_at", "sources"];
 
   function clean(value) {
     return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -20,7 +20,7 @@
   }
   function toCsv(records) {
     return "\uFEFF" + fields.map(csvCell).join(",") + "\r\n" +
-      records.map(r => fields.map(k => csvCell(Array.isArray(r[k]) ? r[k].join("; ") : r[k])).join(",")).join("\r\n") + "\r\n";
+      records.map(r => fields.map(k => csvCell(Array.isArray(r[k]) ? r[k].join("; ") : r[k] && typeof r[k] === "object" ? JSON.stringify(r[k]) : r[k])).join(",")).join("\r\n") + "\r\n";
   }
   function bibEscape(value) {
     // Braced values preserve Unicode; escape BibTeX-sensitive characters.
@@ -45,7 +45,7 @@
         doi: r.doi,
         abstract: r.abstract,
         url: r.article_url,
-        note: [r.pdf_url ? `PDF: ${r.pdf_url}` : "",(r.sources||[]).length?`Fontes: ${r.sources.join(", ")}`:""].filter(Boolean).join("; "),
+        note: [r.pdf_url ? `PDF: ${r.pdf_url}` : "",r.access_status?`Acesso: ${r.access_status}`:"",r.search_query?`Busca: ${String(r.search_query).slice(0,250)}`:"",(r.sources||[]).length?`Fontes: ${r.sources.join(", ")}`:""].filter(Boolean).join("; "),
         journal: r.journal
       };
       for (const [field, value] of Object.entries(values)) {
@@ -82,7 +82,7 @@
       return {
         source: "arXiv", identifier: id, title, authors, year,
         date: dateMatch?.[1] || "", doi: `10.48550/arXiv.${id.replace(/v\d+$/, "")}`,
-        abstract, article_url: `https://arxiv.org/abs/${id}`, pdf_url: pdfUrl, journal: ""
+        abstract, article_url: `https://arxiv.org/abs/${id}`, pdf_url: pdfUrl, journal: "",access_status:"open",access_evidence:"arXiv: preprint aberto",access_url:pdfUrl
       };
     }).filter(Boolean);
     return { records: items, pageSize: nodes.length };
@@ -108,7 +108,7 @@
           title: stripHtml(r.title), authors, year: String(r.pubYear || ""),
           date: r.firstPublicationDate || "", doi: r.doi || "", abstract: stripHtml(r.abstractText),
           article_url: `https://europepmc.org/article/${encodeURIComponent(r.source || "MED")}/${encodeURIComponent(r.id || "")}`,
-          pdf_url: pdf, journal: stripHtml(r.journalInfo?.journal?.title || r.journalTitle)
+          pdf_url: pdf, journal: stripHtml(r.journalInfo?.journal?.title || r.journalTitle),access_status:(r.isOpenAccess==="Y"||r.isOpenAccess===true)?"open":"unknown",access_evidence:"Europe PMC: indicador OA",access_url:pdf
         };
       }).filter(r => r.title && !r.identifier.endsWith(":"))
     };
@@ -225,7 +225,7 @@
         year: String(r.publication_year || ''), date:r.publication_date || '',
         doi:String(r.doi || '').replace(/^https?:\/\/doi\.org\//i,''), abstract:uninvertAbstract(r.abstract_inverted_index),
         article_url:r.doi || r.id || '', pdf_url:r.best_oa_location?.pdf_url || '',
-        journal:clean(r.primary_location?.source?.display_name)
+        journal:clean(r.primary_location?.source?.display_name),access_status:r.open_access?.is_oa===true?'open':r.open_access?.is_oa===false?'no_open_copy_found':'unknown',access_evidence:'Indicador OA OpenAlex',access_url:r.best_oa_location?.pdf_url||r.best_oa_location?.landing_page_url||''
       })).filter(r => r.identifier && r.title) };
   }
   function buildCrossrefUrl(href, cursor, size) {
@@ -277,7 +277,7 @@
         authors:(r.authors || []).map(a=>clean(a.name)).filter(Boolean), year:String(r.year || ''),
         date:r.publicationDate || '', doi:r.externalIds?.DOI || '', abstract:clean(r.abstract),
         article_url:r.url || (r.paperId ? `https://www.semanticscholar.org/paper/${r.paperId}` : ''),
-        pdf_url:r.openAccessPdf?.url || '', journal:clean(r.journal?.name)
+        pdf_url:r.openAccessPdf?.url || '', journal:clean(r.journal?.name),access_status:r.openAccessPdf?.url?'open':'unknown',access_evidence:'Semantic Scholar: indicador OA',access_url:r.openAccessPdf?.url||''
       })).filter(r=>r.identifier && r.title)};
   }
 
@@ -321,7 +321,7 @@
       for(const author of (Array.isArray(r.authors)?r.authors:clean(r.authors).split(';').filter(Boolean))) {
         if(clean(author))lines.push(`AU  - ${clean(author)}`);
       }
-      lines.push(`N1  - DELTA Research Collector; fontes: ${(r.sources||[r.source]).join(', ')}`);
+      lines.push(`N1  - DELTA Research Collector; fontes: ${(r.sources||[r.source]).join(', ')}; acesso: ${r.access_status||'unknown'}`);if(r.search_query)lines.push(`N1  - Busca: ${clean(r.search_query).slice(0,500)}`);if(r.search_url)lines.push(`N1  - URL de busca: ${clean(r.search_url).slice(0,1600)}`);
       lines.push('ER  - ');
       return lines.join('\r\n');
     }).join('\r\n\r\n')+'\r\n';
@@ -352,7 +352,7 @@
         const pdf=links.find(v=>/\.pdf(?:\?|$)/i.test(v.url||''))?.url||'';
         return {source:'DOAJ',identifier:r.id||doi,title:stripHtml(b.title),authors:(b.author||[]).map(a=>clean(a.name)).filter(Boolean),
         year:String(b.year||''),date:b.month&&b.year?`${b.year}-${b.month}`:String(b.year||''),doi:normalizeDoi(doi),abstract:stripHtml(b.abstract),
-        article_url:url||(r.id?`https://doaj.org/article/${r.id}`:''),pdf_url:pdf,journal:clean(b.journal?.title)};
+        article_url:url||(r.id?`https://doaj.org/article/${r.id}`:''),pdf_url:pdf,journal:clean(b.journal?.title),access_status:'open',access_evidence:'DOAJ: revista aberta',access_url:url};
       }).filter(r=>r.identifier&&r.title)};
   }
   function buildSciELOUrl(href,from=1,count=15) {
@@ -414,7 +414,7 @@
       source:server==='biorxiv'?'bioRxiv':'medRxiv',identifier:clean(r.doi),title:clean(r.title),
       authors:clean(r.authors).split(/;\s*/).filter(Boolean),year:clean(r.date).slice(0,4),date:r.date||'',doi:normalizeDoi(r.doi),
       abstract:stripHtml(r.abstract),article_url:`https://doi.org/${encodeURI(normalizeDoi(r.doi))}`,
-      pdf_url:'',journal:'Preprint'
+      pdf_url:'',journal:'Preprint',access_status:'open',access_evidence:'Preprint em servidor aberto',access_url:`https://doi.org/${encodeURI(normalizeDoi(r.doi))}`
     })).filter(r=>r.identifier&&r.title)};
   }
   function matchesTerm(record,term) {
@@ -422,8 +422,54 @@
     if(!needle)return true;
     return clean(`${record.title} ${record.abstract}`).toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(needle);
   }
+
+  function searchContext(href) {
+    const u=new URL(href),params={},sensitive=/token|api.?key|passw|session|auth|secret|credential|email|cookie|ticket|sso|nonce|csrf|code|state/i;
+    for(const [k,v] of u.searchParams.entries())if(!sensitive.test(k)){(params[k] ||= []).push(v.slice(0,3000));}
+    let q='';
+    for(const k of ['queryText','querytext','query','q','term','search','searchTerm','searchtext','searchText','terms-0-term'])if(params[k]?.length){q=params[k][0];break;}
+    if(!q&&u.pathname.startsWith('/search/')){const parts=u.pathname.split('/').filter(Boolean);if(parts[1]&&!['searchresult.jsp','advanced','articles'].includes(parts[1]))q=decodeURIComponent(parts[1]).slice(0,1500);}
+    const safe=new URL(u.origin+u.pathname);
+    for(const [k,values] of Object.entries(params))for(const v of values)safe.searchParams.append(k,v);
+    const filters=Object.fromEntries(Object.entries(params).filter(([k])=>/filter|refinement|facet|range|year|date|sort|order|field|classification|pubtype|contentType|publication|author|access/i.test(k)));
+    return {url:safe.toString(),query:q,parameters:params,filters,source:detectProvider(href),captured_at:new Date().toISOString()};
+  }
+  function accessInfo(r){return {...r,access_status:['open','publisher_restricted','no_open_copy_found','unknown'].includes(r.access_status)?r.access_status:'unknown',access_evidence:r.access_evidence||'',access_url:r.access_url||'',access_checked_at:r.access_checked_at||''};}
+  function parseOpenAlexAccess(r){
+    if(!r?.id)throw Error('Resposta OpenAlex inesperada');
+    const open=r.open_access?.is_oa===true;const loc=r.best_oa_location||r.primary_location||{};
+    if(open)return {status:'open',url:loc.pdf_url||loc.landing_page_url||r.open_access?.oa_url||'',evidence:'OpenAlex: copia aberta indexada'};
+    if(r.open_access?.is_oa===false)return {status:'no_open_copy_found',url:'',evidence:'OpenAlex: nao encontrou copia OA; paywall nao comprovado'};
+    return {status:'unknown',url:'',evidence:'OpenAlex: inconclusivo'};
+  }
+  function parseIEEEPage(doc) {
+    const nodes=[],seen=new Set();
+    for(const selector of ['.List-results-items .List-results-item','.List-results-item','xpl-search-result','article.search-result'])
+      for(const e of doc.querySelectorAll(selector))if(!seen.has(e)){nodes.push(e);seen.add(e);}
+    if(!nodes.length)for(const a of doc.querySelectorAll('a[href*="/document/"]')){
+      const e=a.closest('li,article,[class*="List-results-item"],[class*="search-result"]');
+      if(e&&!seen.has(e)){nodes.push(e);seen.add(e);}
+    }
+    const records=[],ids=new Set();
+    for(const e of nodes) {
+      const a=e.querySelector('a[href*="/document/"]');if(!a)continue;
+      const url=new URL(a.getAttribute('href')||'', 'https://ieeexplore.ieee.org');
+      if(url.hostname!=='ieeexplore.ieee.org')continue;
+      const id=url.pathname.match(/^\/document\/(\d+)/)?.[1];if(!id||ids.has(id))continue;
+      const title=clean(e.querySelector('.result-item-title,.List-results-item-title,[class*="document-title"]')?.textContent||a.textContent);
+      if(title.length<5)continue;ids.add(id);
+      const text=clean(e.textContent),rawDoi=text.match(/\b10\.\d{4,9}\/[^\s<>"']+/i)?.[0]||e.querySelector('a[href*="doi.org/"]')?.getAttribute('href')||'';
+      const authors=[...e.querySelectorAll('a[href*="/author/"],.authors a,.author a')].map(n=>clean(n.textContent)).filter(Boolean).slice(0,60);
+      const isOpen=/(?:^|\s)Open Access(?:\s|$)/i.test(text),locked=/(?:^|\s)Locked(?:\s|$)|subscription required|purchase pdf/i.test(text);
+      records.push({source:'IEEE Xplore',identifier:id,title,authors,year:text.match(/\b(?:19|20)\d{2}\b/)?.[0]||'',date:'',doi:normalizeDoi(rawDoi),abstract:'',article_url:'https://ieeexplore.ieee.org/document/'+id,pdf_url:'',journal:'',
+        access_status:isOpen?'open':locked?'publisher_restricted':'unknown',access_evidence:isOpen?'IEEE: selo Open Access':locked?'IEEE: selo Locked':'Sem sinal confiavel na pagina',access_url:isOpen?'https://ieeexplore.ieee.org/document/'+id:''});
+    }
+    return {records,pageSize:records.length,total:null,mode:'visible_page_only'};
+  }
+
   function detectProvider(href) {
     const u = new URL(href);
+    if (u.hostname === "ieeexplore.ieee.org" && u.pathname.startsWith("/search/")) return "ieee";
     if (u.hostname === "arxiv.org" && u.pathname.startsWith("/search/")) return "arxiv";
     if (["europepmc.org", "www.europepmc.org"].includes(u.hostname) && u.pathname.startsWith("/search")) return "europepmc";
     if (u.hostname === "pubmed.ncbi.nlm.nih.gov" && u.pathname === "/" && u.searchParams.has("term")) return "pubmed";
@@ -442,5 +488,5 @@
     buildOpenAlexUrl, parseOpenAlex, uninvertAbstract,
     buildCrossrefUrl, parseCrossref, buildSemanticScholarUrl, parseSemanticScholar,
     normalizeDoi, workKey, mergeRecord, deduplicateRecords, toRis,
-    buildDoajUrl,parseDoaj,buildSciELOUrl,parseSciELO,buildPreprintUrl,parsePreprint,matchesTerm };
+    buildDoajUrl,parseDoaj,buildSciELOUrl,parseSciELO,buildPreprintUrl,parsePreprint,matchesTerm,searchContext,accessInfo,parseOpenAlexAccess,parseIEEEPage };
 })();

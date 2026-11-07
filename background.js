@@ -1,4 +1,4 @@
-/* DELTA Research Collector v0.3.0 • GPL-3.0-or-later. */
+/* DELTA Research Collector v0.4.0 • GPL-3.0-or-later. */
 "use strict";
 function allowedFetch(uri) {
   let u;
@@ -8,7 +8,7 @@ function allowedFetch(uri) {
   return (u.hostname === 'arxiv.org' && u.pathname.startsWith('/search/')) ||
     key === 'www.ebi.ac.uk/europepmc/webservices/rest/search' ||
     (u.hostname === 'eutils.ncbi.nlm.nih.gov' && /^\/entrez\/eutils\/(esearch|efetch)\.fcgi$/.test(u.pathname)) ||
-    key === 'api.openalex.org/works' ||
+    (key === 'api.openalex.org/works' || (u.hostname==='api.openalex.org' && /^\/works\/doi:10\.\d{4,9}\/.+/.test(u.pathname))) ||
     key === 'api.crossref.org/works' ||
     key === 'api.semanticscholar.org/graph/v1/paper/search' ||
     (u.hostname === 'doaj.org' && u.pathname.startsWith('/api/search/articles/')) ||
@@ -34,6 +34,8 @@ const merge=(a,b)=>{
   for (const k of ['title','abstract','journal','pdf_url','article_url','year','date']) if(String(b[k]||'').length>String(r[k]||'').length)r[k]=b[k];
   if((b.authors?.length||0)>(r.authors?.length||0))r.authors=b.authors;
   if(!r.doi&&b.doi)r.doi=b.doi;
+  const rank={unknown:0,no_open_copy_found:1,publisher_restricted:2,open:3};
+  if((rank[b.access_status]||0)>(rank[r.access_status]||0))for(const k of ['access_status','access_evidence','access_url','access_checked_at'])r[k]=b[k]||'';
   return r;
 };
 // Sequential mutation queue prevents two tabs overwriting the library concurrently.
@@ -53,7 +55,7 @@ async function appendLibrary(records,run){
   }
   const hist=[...(data[HIST_KEY]||[])];
   hist.unshift({id:`${Date.now()}-${Math.random().toString(36).slice(2,7)}`,source:run.source||'',url:run.url||'',
-    date:new Date().toISOString(),received:records.length,added,merged,dropped,partial:!!run.partial,note:String(run.note||'').slice(0,500)});
+    date:new Date().toISOString(),received:records.length,added,merged,dropped,partial:!!run.partial,query:String(run.query||'').slice(0,2000),parameters:run.parameters||{},retrieval_mode:String(run.retrieval_mode||''),note:String(run.note||'').slice(0,500)});
   await chrome.storage.local.set({[LIB_KEY]:[...map.values()],[HIST_KEY]:hist.slice(0,MAX_HIST)});
   return {total:map.size,added,merged,dropped};
 }
@@ -95,9 +97,19 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     return true;
   }
 });
-chrome.action.onClicked.addListener(tab => {
-  if (!tab?.id) return;
-  chrome.tabs.sendMessage(tab.id,{type:'DELTA_TOGGLE'}, () => {
-    if (chrome.runtime.lastError) chrome.tabs.create({url:'https://arxiv.org/search/advanced'});
-  });
+// Never navigate away from the active search tab.
+chrome.action.onClicked.addListener(async tab => {
+  if(!tab?.id)return;
+  const send=()=>new Promise(resolve=>chrome.tabs.sendMessage(tab.id,{type:'DELTA_TOGGLE'},()=>resolve(!chrome.runtime.lastError)));
+  if(await send())return;
+  try {
+    await chrome.scripting.executeScript({target:{tabId:tab.id},files:['collector-core.js','content.js']});
+    if(await send())return;
+    await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>{
+      const id='delta-notice';document.getElementById(id)?.remove();
+      const e=document.createElement('div');e.id=id;e.textContent='DELTA Collector: esta pagina nao possui coletor compativel.';
+      Object.assign(e.style,{position:'fixed',right:'20px',bottom:'20px',zIndex:'2147483647',background:'#152d43',color:'white',padding:'12px',borderRadius:'10px',font:'13px system-ui'});
+      document.documentElement.append(e);setTimeout(()=>e.remove(),6000);
+    }});
+  }catch(e){console.info('DELTA: pagina sem acesso de extensao',String(e));}
 });

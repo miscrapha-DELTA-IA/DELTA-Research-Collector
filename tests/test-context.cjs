@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict');require('../collector-core.js');const c=globalThis.DELTA_CORE;
+assert.equal(c.detectProvider('https://ieeexplore.ieee.org/search/searchresult.jsp?queryText=dengue'),'ieee');
+const x=c.searchContext('https://ieeexplore.ieee.org/search/searchresult.jsp?queryText=dengue&refinements=PublicationYear%3A2025&token=SECRET');
+assert.equal(x.query,'dengue');assert.equal(x.filters.refinements[0],'PublicationYear:2025');assert.ok(!x.url.includes('SECRET'));
+const a={getAttribute(){return '/document/12345';},textContent:'IEEE Machine Learning Study'};
+const n={textContent:'IEEE Machine Learning Study 2025 DOI: 10.1109/ABC.2025.12345 Open Access',querySelector(s){return s.includes('href*="/document/"')?a:null;},querySelectorAll(){return [];}};
+const d={querySelectorAll(s){return s==='.List-results-item'?[n]:[];}};
+assert.equal(c.parseIEEEPage(d).records[0].doi,'10.1109/abc.2025.12345');assert.equal(c.parseIEEEPage(d).records[0].access_status,'open');
+assert.equal(c.accessInfo({}).access_status,'unknown');
+assert.equal(c.parseOpenAlexAccess({id:'W1',open_access:{is_oa:false}}).status,'no_open_copy_found');
+assert.ok(c.toCsv([{search_query:'dengue',access_status:'unknown'}]).includes('search_query'));
+console.log('PASS: IEEE, strategy, access metadata and export.');
