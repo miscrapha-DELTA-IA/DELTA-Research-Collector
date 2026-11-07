@@ -77,6 +77,22 @@ flowchart LR
 Direct IEEE collection reads **visible result cards only**, not every results page. If IEEE reports 512 hits and DELTA recovers about 25, the export is **partial**. For larger datasets, use **IEEE Xplore's native CSV export** and import that file into DELTA. Enter the expected total to compare counts. Matching counts alone do not verify metadata accuracy.
 </details>
 
+## Visual screening matrix — new in v0.5.0
+
+In addition to CSV, RIS, BibTeX and JSON, the extension now exports an **offline interactive HTML review matrix** designed for manual screening of large collections.
+
+- **Readable cards and records:** highlighted titles, expandable abstracts, authors, year, DOI and article links.
+- **Practical filters:** full-text search, source, access evidence, screening decision and missing metadata.
+- **Screening decisions:** **Include / Exclude / Maybe / Pending**, with reasons and notes.
+- **Portable annotations:** export annotated CSV, save decisions as JSON and import them later.
+- **Coverage audit:** exported count, provider/user-reported total and explicit fidelity warnings.
+
+**Use:** run a search, optionally enter the source website's reported hit count under *Auditoria de cobertura*, select **Matriz visual interativa (HTML)**, then open the downloaded file. Existing library records can also be exported through **Library → Matriz visual**.
+
+> **Methodological warning:** a matching result count does not prove identical records, filters or ranking. This report works locally; export decisions before closing it.
+
+[Full workflow and methodological limitations](docs/REVIEW_MATRIX.md)
+
 ## Coverage by source
 
 | Source | Integration | Important limitation |
