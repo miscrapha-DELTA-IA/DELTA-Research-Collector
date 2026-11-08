@@ -70,7 +70,7 @@ const report=(async()=>{
  assert.equal(r.summary.registry_match,2);
  assert.equal(r.summary.not_checked_budget,1);
  assert.match(globalThis.DELTA_CORE.toCsv(r.records),/xref_status/);
- assert.match(globalThis.DELTA_CORE.toBibtex(r.records),/XRef: registry_match/);
+ assert.match(globalThis.DELTA_CORE.toBibtex(r.records),/XRef: registry\\_match/);
  assert.match(globalThis.DELTA_CORE.toRis(r.records),/XRef: registry_match/);
  console.log("PASS: DOI identity/author/year conflict guards, provenance, registry parsing, budgets and exports.");
 })();
