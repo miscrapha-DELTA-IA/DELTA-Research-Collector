@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.6.0. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.6.1. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -166,7 +166,7 @@
         <div class="status" id="delta-audit-result" role="status" aria-live="polite">Total não informado — completude ainda não verificada.</div>
       </div>
       <label class="check" id="delta-oa-label"><input type="checkbox" id="delta-oa"/><span>Verificar cópias abertas por DOI via OpenAlex (até 20; envia os DOIs).</span></label>
-      <label class="check" id="delta-xref-label"><input type="checkbox" id="delta-xref" checked/><span>Verificação cruzada por DOI (Crossref/DataCite; até 30 DOIs por coleta; envia DOIs aos registradores). Apenas campos vazios podem ser enriquecidos; conflitos são preservados.</span></label>
+      <label class="check" id="delta-xref-label"><input type="checkbox" id="delta-xref" checked/><span>Verificar DOIs no Crossref/DataCite (até 30 consultas novas por execução; envia DOIs aos registradores). Cache local, retomada e preservação do original; não associa artigos por título.</span></label>
       <label class="check" id="delta-local-label"><input type="checkbox" id="delta-local" checked/><span>Adicionar registros à biblioteca local para deduplicação entre fontes (por DOI).</span></label>
       <label class="check" id="delta-pdf-label"><input type="checkbox" id="delta-pdf" /><span>Também solicitar PDFs do arXiv (máximo 20 por coleta).</span></label>
       <p class="note" id="delta-note">Até 2.000 registros por operação. Filtros não traduzidos serão bloqueados ou sinalizados. Respeita intervalos entre requisições.</p>
@@ -176,9 +176,14 @@
       <div class="special" id="delta-library">
         <div class="top"><strong style="font-size:12px">Biblioteca e histórico local</strong><button class="mini" id="delta-refresh">Atualizar</button></div>
         <div class="status" id="delta-library-info">Clique Atualizar para consultar.</div>
+        <div class="minirow">
+          <button class="mini" id="delta-xref-continue" type="button">Verificar próximo lote (30 DOIs)</button>
+          <button class="mini" id="delta-xref-review" type="button">Candidatos sem DOI (revisão humana)</button>
+        </div>
+        <p class="note">A continuação usa a biblioteca local e exporta CSV e auditoria JSON. Candidatos sem DOI exigem uma pesquisa explícita por título no Crossref e nunca são incorporados automaticamente.</p>
         <div class="minirow"><button class="mini" id="delta-library-ris">Exportar RIS / Zotero</button><button class="mini" id="delta-library-bib">BibTeX</button><button class="mini" id="delta-library-csv">CSV</button><button class="mini" id="delta-library-json">JSON</button><button class="mini" id="delta-library-html">Matriz visual</button></div>
         <div class="history" id="delta-history"></div>
-        <div class="minirow"><button class="mini" id="delta-clear">Apagar biblioteca e histórico</button></div>
+        <div class="minirow"><button class="mini" id="delta-clear">Apagar biblioteca e histórico</button><button class="mini" id="delta-xref-cache-clear" type="button">Limpar cache de DOI</button></div>
       </div>
       <div class="foot">Biblioteca e histórico ficam neste navegador • sem conta • sem servidores DELTA IA</div>
     </section>
@@ -374,18 +379,29 @@
         throw Error("DataCite: HTTP "+second.status);
       }
     }else throw Error("Crossref: HTTP "+first.status);
-    // Cache successful results and true 404s during the current browser page.
+    // Cache only verified registrar answers or a true double-404. Never cache
+    // 429/5xx errors or truncated / malformed bibliographic responses.
     xrefCache.set(normalized,candidate);
+    try{await message({type:"DELTA_XREF_CACHE_SET",doi:normalized,external:candidate});}
+    catch(error){console.info("DELTA XRef: cache local indisponível",String(error?.message||error));}
     return candidate;
   }
   async function verifyAcrossSources(rows,enabled=$("xref").checked){
     if(!enabled||!globalThis.DELTA_XREF)
       return {records:rows,summary:{enabled:false,records:rows.length,
         reason:enabled?"engine_unavailable":"user_opted_out"}};
+    const dois=[...new Set(rows.map(r=>globalThis.DELTA_XREF.doi(r.doi))
+      .filter(globalThis.DELTA_XREF.validDoi))];
+    let cached=new Map();
+    try{
+      const reply=await message({type:"DELTA_XREF_CACHE_GET",dois});
+      cached=new Map(Object.entries(reply.entries||{}));
+    }catch(error){console.info("DELTA XRef: não foi possível ler cache",String(error?.message||error));}
     const results=await globalThis.DELTA_XREF.enrichRecords(rows,lookupRegistryMetadata,{
-      maxLookups:30,isCancelled:()=>state.cancel,
-      onProgress:({checked,requested})=>setStatus("Cross-reference: "+checked+
-        "/"+requested+" DOIs consultados; preservando metadados originais…")
+      maxLookups:30,cache:cached,preserveVerified:true,isCancelled:()=>state.cancel,
+      onProgress:({checked,requested,cacheHits})=>setStatus("Cross-reference: "+
+        checked+"/"+requested+" DOIs novos; "+cacheHits+
+        " recuperados do cache; preservando metadados originais…")
     });
     return {...results,summary:{...results.summary,enabled:true,
       caution:"Vínculo a um registrador não é segunda confirmação independente. Correspondências por título isolado são proibidas; registros ambíguos não foram alterados."}};
@@ -397,7 +413,7 @@
     const context=strategy();
     const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.6.0",
+      generator: "DELTA Research Collector 0.6.1",
       source: provider, original_search_url: context.url, exported_at: now.toISOString(),
       search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
       retrieval_mode:retrievalMode,collector_note:collectorNote,
@@ -447,7 +463,7 @@
       const text=format==='html'?globalThis.DELTA_REVIEW.reviewHtml(data.records,{
         source:'biblioteca_local', exported_at:new Date().toISOString(), retrieval_mode:'local_merged_library',
         audit:globalThis.DELTA_REVIEW.auditCoverage({source:'biblioteca_local',collected:data.records.length})
-      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.6.0',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.6.1',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
       saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
       $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
