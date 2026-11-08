@@ -7,7 +7,7 @@ const vm=require('node:vm');
   runtime:{onMessage:{addListener(fn){handler=fn;}},lastError:null},
   action:{onClicked:{addListener(){}}},
   tabs:{sendMessage(){},create(){}},
-  storage:{local:{async get(keys){const out={};for(const k of keys)out[k]=db[k];return out;},async set(rows){Object.assign(db,rows);},async remove(keys){for(const k of keys)delete db[k];}},session:{async get(keys){const out={};for(const k of [keys].flat())out[k]=session[k];return out;},async set(rows){Object.assign(session,rows);},async remove(keys){for(const k of [keys].flat())delete session[k];}}},
+  storage:{local:{async get(keys){const out={};for(const k of [keys].flat())out[k]=db[k];return out;},async set(rows){Object.assign(db,rows);},async remove(keys){for(const k of [keys].flat())delete db[k];}},session:{async get(keys){const out={};for(const k of [keys].flat())out[k]=session[k];return out;},async set(rows){Object.assign(session,rows);},async remove(keys){for(const k of [keys].flat())delete session[k];}}},
   downloads:{download(cfg,cb){cb(1)}}
  };
  vm.runInNewContext(fs.readFileSync(__dirname+'/../background.js','utf8'),{chrome,URL,AbortController,setTimeout,clearTimeout,fetch});
