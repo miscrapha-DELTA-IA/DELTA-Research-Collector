@@ -22,6 +22,77 @@ function allowedPdf(uri) {
   return u.protocol === 'https:' && u.hostname === 'arxiv.org' && /^\/pdf\/[A-Za-z0-9.\-_/]+(?:\.pdf)?$/.test(u.pathname);
 }
 
+// Download local exports through chrome.downloads instead of simulated clicks
+// inside third-party pages. MV3 service workers cannot create Blob URLs;
+// a bundled offscreen document owns those URLs until the download settles.
+let creatingDownloadDocument=null;
+const pendingBlobDownloads=new Map();
+async function ensureDownloadDocument(){
+  const path="download-offscreen.html";
+  if(chrome.runtime.getContexts){
+    const active=await chrome.runtime.getContexts({
+      contextTypes:["OFFSCREEN_DOCUMENT"],
+      documentUrls:[chrome.runtime.getURL(path)]
+    });
+    if(active.length)return;
+  }
+  if(!creatingDownloadDocument){
+    creatingDownloadDocument=chrome.offscreen.createDocument({
+      url:path,reasons:["BLOBS"],
+      justification:"Gerar arquivos CSV, BibTeX e JSON na origem da extensão para downloads locais confiáveis."
+    }).finally(()=>{creatingDownloadDocument=null;});
+  }
+  await creatingDownloadDocument;
+}
+async function releaseBlobUrl(url){
+  if(!url)return;
+  try{
+    await chrome.runtime.sendMessage({target:"delta-download-offscreen",
+      type:"DELTA_OFFSCREEN_REVOKE",url});
+  }catch{}
+}
+if(chrome.downloads.onChanged){
+  chrome.downloads.onChanged.addListener(delta=>{
+    if(!["complete","interrupted"].includes(delta.state?.current))return;
+    const url=pendingBlobDownloads.get(delta.id);
+    if(url){pendingBlobDownloads.delete(delta.id);releaseBlobUrl(url);}
+  });
+}
+async function downloadLocalExport(message,sender){
+  if(!Number.isSafeInteger(sender.tab?.id)||sender.tab.id<0)
+    throw Error("Exportação: origem inválida.");
+  const filename=String(message.filename||"");
+  if(!/^DELTA_[\w.-]{1,160}\.(?:csv|bib|ris|json|html)$/.test(filename))
+    throw Error("Exportação: nome de arquivo não permitido.");
+  const mime=String(message.mime||"");
+  if(!/^(?:text\/csv|text\/plain|text\/html|application\/json)(?:;charset=utf-8)?$/i.test(mime))
+    throw Error("Exportação: formato inválido.");
+  if(typeof message.content!=="string"||!message.content.length||
+     message.content.length>25_000_000)
+    throw Error("Exportação vazia ou acima de 25 MB de texto.");
+  await ensureDownloadDocument();
+  const file=await chrome.runtime.sendMessage({
+    target:"delta-download-offscreen",type:"DELTA_OFFSCREEN_CREATE",
+    content:message.content,mime
+  });
+  if(!file?.url)throw Error(file?.error||"Não foi possível gerar arquivo para download.");
+  try{
+    const id=await new Promise((resolve,reject)=>{
+      chrome.downloads.download({url:file.url,filename,conflictAction:"uniquify",
+        saveAs:false},value=>{
+        const failure=chrome.runtime.lastError?.message;
+        if(failure||!Number.isInteger(value))reject(Error(failure||"Download recusado pelo navegador"));
+        else resolve(value);
+      });
+    });
+    pendingBlobDownloads.set(id,file.url);
+    return {downloadId:id,filename,started:true};
+  }catch(error){
+    await releaseBlobUrl(file.url);
+    throw error;
+  }
+}
+
 // Session-only CAPES collection state, isolated by Chrome tab ID.
 // Does not persist across browser restarts; contains bibliographic metadata only.
 const CAPES_SESSION_PREFIX="delta_capes_run_tab_";
@@ -222,6 +293,11 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       } catch (e) { reply({error:String(e?.message || e)}); }
       finally { clearTimeout(timeout); }
     })();
+    return true;
+  }
+  if(message.type==="DELTA_EXPORT_FILE"){
+    downloadLocalExport(message,sender)
+      .then(reply).catch(e=>reply({error:String(e.message||e)}));
     return true;
   }
   if (message.type === 'DELTA_PDF') {
