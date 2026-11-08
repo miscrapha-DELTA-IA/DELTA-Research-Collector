@@ -1073,12 +1073,17 @@
     };
     const parsed=core.parseCapesPage(document,location.href);
     const out={
-      generator:"DELTA Research Collector CAPES scoped diagnostic 0.5.9",
+      generator:"DELTA Research Collector CAPES scoped diagnostic "+chrome.runtime.getManifest().version,
       captured_at:new Date().toISOString(),source:"capes",
       sanitized_search_url:search.url,
       visible_cards:document.querySelectorAll(".result-busca").length,
       visible_records_recognized:parsed.records.length,
       reported_total:parsed.total,
+      requested_page:Number(new URL(location.href).searchParams.get("page")||"1"),
+      visible_page_range:parsed.visibleRange,
+      rendered_page_matches_url:parsed.visibleRange?
+        parsed.visibleRange.start===((Number(new URL(location.href).searchParams.get("page")||"1")-1)*
+          Number(new URL(location.href).searchParams.get("num")||"30")+1):null,
       first_card_structure:samples,pagination,
       note:"Somente trechos bibliográficos e paginação; nenhum cabeçalho de conta, botão de login, cookies ou credenciais. Revise os termos de busca e títulos antes de compartilhar."
     };
