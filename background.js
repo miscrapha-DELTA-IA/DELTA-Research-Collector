@@ -9,7 +9,8 @@ function allowedFetch(uri) {
     key === 'www.ebi.ac.uk/europepmc/webservices/rest/search' ||
     (u.hostname === 'eutils.ncbi.nlm.nih.gov' && /^\/entrez\/eutils\/(esearch|efetch)\.fcgi$/.test(u.pathname)) ||
     (key === 'api.openalex.org/works' || (u.hostname==='api.openalex.org' && /^\/works\/doi:10\.\d{4,9}\/.+/.test(u.pathname))) ||
-    key === 'api.crossref.org/works' ||
+    (u.hostname === 'api.crossref.org' && (u.pathname === '/works' || /^\/works\/(?:doi\/)?10\.\d{4,9}\/[A-Za-z0-9%._;()/:+-]+$/i.test(u.pathname))) ||
+    (u.hostname === 'api.datacite.org' && /^\/dois\/10\.\d{4,9}\/[A-Za-z0-9%._;()/:+-]+$/i.test(u.pathname)) ||
     key === 'api.semanticscholar.org/graph/v1/paper/search' ||
     (u.hostname === 'doaj.org' && u.pathname.startsWith('/api/search/articles/')) ||
     (u.hostname === 'search.scielo.org' && u.pathname === '/') ||
