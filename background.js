@@ -50,6 +50,54 @@ function capesRunValid(run,sender){
       JSON.stringify(run).length<6_000_000;
   }catch{return false;}
 }
+// Bibliographic DOI cache only. No search expressions, cookies, account identifiers
+// or full text are stored. Cache is local to this extension installation.
+const XREF_CACHE_KEY="delta_xref_doi_cache_v061";
+const XREF_TTL_MS=30*86400000, XREF_MISS_TTL_MS=3*86400000;
+const XREF_CACHE_MAX=1200;
+const cacheDoi=s=>String(s||"").trim().replace(/^https?:\/\/(?:dx\.)?doi\.org\//i,"")
+  .toLowerCase().replace(/[.,;]+$/,"");
+const acceptableDoi=s=>/^10\.\d{4,9}\/[^\s"'<>]+$/i.test(s)&&s.length<=255&&
+  !/(?:google|scholar|crossref|abstract|resumo|detalhes)$/i.test(s);
+const sanitizedRegistry=(x,key)=>{
+  if(x===null)return null;
+  if(!x||typeof x!=="object"||!["Crossref","DataCite"].includes(x.source)||
+     cacheDoi(x.doi)!==key)throw Error("XRef: metadados do registrador inválidos.");
+  const str=(v,max=850)=>String(v||"").replace(/\s+/g," ").trim().slice(0,max);
+  const authors=Array.isArray(x.authors)?x.authors.slice(0,80).map(v=>str(v,220)).filter(Boolean):[];
+  const url=str(x.metadata_url,1200);
+  const hostname=new URL(url).hostname;
+  if((x.source==="Crossref"&&hostname!=="api.crossref.org")||
+     (x.source==="DataCite"&&hostname!=="api.datacite.org"))
+    throw Error("XRef: fonte de evidência não autorizada.");
+  return {source:x.source,doi:key,title:str(x.title),authors,year:str(x.year,12),
+    date:str(x.date,32),journal:str(x.journal),metadata_url:url};
+};
+async function cacheRead(keys){
+  const data=await chrome.storage.local.get(XREF_CACHE_KEY);
+  const all=data[XREF_CACHE_KEY]||{},now=Date.now(),out={};
+  for(const key of keys){
+    const item=all[key];
+    if(item&&Number(item.expires_at)>now&&Object.prototype.hasOwnProperty.call(item,"external"))
+      out[key]=item;
+  }
+  return out;
+}
+async function cachePut(key,external){
+  const now=Date.now();
+  const data=await chrome.storage.local.get(XREF_CACHE_KEY);
+  const existing=data[XREF_CACHE_KEY]||{};
+  const fresh=Object.entries(existing).filter(([,v])=>
+    v&&Number(v.expires_at)>now).sort((a,b)=>(a[1].cached_at||0)-(b[1].cached_at||0));
+  const result=Object.fromEntries(fresh);
+  result[key]={external:sanitizedRegistry(external,key),cached_at:now,
+    expires_at:now+(external===null?XREF_MISS_TTL_MS:XREF_TTL_MS)};
+  const ordered=Object.entries(result).sort((a,b)=>a[1].cached_at-b[1].cached_at);
+  await chrome.storage.local.set({[XREF_CACHE_KEY]:Object.fromEntries(
+    ordered.slice(-XREF_CACHE_MAX))});
+  return {saved:true,expires_at:result[key].expires_at};
+}
+
 const LIB_KEY='delta_v03_library', HIST_KEY='delta_v03_history';
 const MAX_ITEMS=12000, MAX_HIST=80;
 const norm = (v)=>String(v||'').trim();
@@ -130,6 +178,25 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       }
       return {run};
     })().then(reply).catch(e=>reply({error:String(e.message||e)}));
+    return true;
+  }
+  if(["DELTA_XREF_CACHE_GET","DELTA_XREF_CACHE_SET","DELTA_XREF_CACHE_CLEAR"].includes(message.type)){
+    const run=async()=>{
+      if(message.type==="DELTA_XREF_CACHE_CLEAR"){
+        await chrome.storage.local.remove(XREF_CACHE_KEY);return {cleared:true};
+      }
+      if(message.type==="DELTA_XREF_CACHE_GET"){
+        if(!Array.isArray(message.dois)||message.dois.length>2000)
+          throw Error("XRef: solicitação de cache excessiva.");
+        const keys=[...new Set(message.dois.map(cacheDoi).filter(acceptableDoi))];
+        return {entries:await cacheRead(keys)};
+      }
+      const key=cacheDoi(message.doi);
+      if(!acceptableDoi(key))throw Error("XRef: DOI inválido.");
+      return await cachePut(key,message.external);
+    };
+    (message.type==="DELTA_XREF_CACHE_GET"?run():enqueue(run))
+      .then(reply).catch(e=>reply({error:String(e.message||e)}));
     return true;
   }
   if (['DELTA_LIBRARY_ADD','DELTA_LIBRARY_GET','DELTA_LIBRARY_CLEAR'].includes(message.type)) {
