@@ -54,3 +54,7 @@ assert.match(script,/generator:"DELTA Research Collector CAPES scoped diagnostic
 assert.match(script,/visible_page_range:parsed\.visibleRange/,"Diagnostic must expose rendered page range");
 assert.match(script,/rendered_page_matches_url:/,"Diagnostic must flag URL/DOM mismatch");
 assert.doesNotMatch(script,/CAPES scoped diagnostic 0\.5\.9/,"Diagnostic must not contain stale hard-coded versions");
+
+assert.match(script,/DELTA_EXPORT_FILE/,"Library exports must use download API, not simulated anchor clicks");
+assert.match(script,/Download de .* artigos únicos iniciado/,"Library UI must only confirm download initiation");
+assert.match(script,/downloadId/,"Library must check downloads API receipt");
