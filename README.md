@@ -61,6 +61,18 @@ A mesma etapa de verificação por DOI é oferecida para todas as fontes do DELT
 - **Sinais de acesso ao texto completo**, incluindo cópia aberta identificada, restrição da editora ou status desconhecido.
 - **PDFs do arXiv**, até 20 solicitações opcionais por coleta, sem contornar controles de acesso.
 
+## Exportação da biblioteca — correção de downloads (v0.6.3)
+
+Nas versões anteriores, os botões **CSV, BibTeX, RIS, JSON e Matriz HTML** da **Biblioteca e matriz** simulavam o clique em um link temporário dentro da página do provedor. O navegador podia ignorar esse clique (especialmente após operações assíncronas), enquanto o painel informava que o arquivo havia sido exportado. A v0.6.3 usa `chrome.downloads.download` a partir do service worker, com arquivos Blob criados em documento offscreen pertencente à extensão. O painel só mostra **download iniciado** depois de receber `downloadId`; falhas são exibidas.
+
+- Funciona para bibliotecas maiores, sem converter o CSV inteiro em uma data URL potencialmente longa.
+- Nunca envia artigos para serviços externos para exportar; conteúdo, biblioteca e arquivos permanecem locais.
+- Usa o nome de arquivo `DELTA_biblioteca_unificada_*.csv` (ou `.bib`, `.ris`, `.json`, `.html`) com tratamento de nomes repetidos e liberação de URLs temporárias ao concluir/interromper o download.
+- O painel informa **início**, não conclusão do download. Confira `opera://downloads` para confirmar o arquivo.
+- **Coletar busca** continua sendo um atalho limitado a **200 registros**; para recuperar uma busca de 432 itens, abra as configurações e selecione limite **500**, então **Baixar resultados**. O total da interface e o número de registros na biblioteca são métricas distintas.
+
+A comparação realizada entre a exportação oficial do OpenAlex `works-2026-11-08T01-29-27.csv` (432 linhas) e a exportação DELTA `DELTA_openalex_2026-11-08T01-28-00.csv` (200 linhas) confirmou coincidência de **todos os 200 títulos nas posições 1–200**, inclusive registros com títulos repetidos. Isso valida a ordem e os títulos desse segmento, não garante equivalência de todos os demais metadados nem a cobertura de 432 resultados.
+
 ## Instalação em 2 minutos
 
 **[Baixar a última Release](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector/releases/latest)** · [Código-fonte](https://github.com/miscrapha-DELTA-IA/DELTA-Research-Collector)
