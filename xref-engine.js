@@ -73,10 +73,10 @@
     const xref={version:1,status:"unverified",checked_at:checkedAt,
       source:external?.source||"",metadata_url:external?.metadata_url||"",
       doi:lookupDoi,original:prior,field_provenance:{},conflicts:[],suggested:{}};
-    if(!validDoi(lookupDoi)){xref.status="missing_or_invalid_doi";base.xref=xref;return base;}
-    if(!external){xref.status="not_found";base.xref=xref;return base;}
+    if(!validDoi(lookupDoi)){xref.status="missing_or_invalid_doi";base.xref=xref;base.xref_status=xref.status;base.xref_source="";return base;}
+    if(!external){xref.status="not_found";base.xref=xref;base.xref_status=xref.status;base.xref_source="";return base;}
     if(doi(external.doi)!==lookupDoi){
-      xref.status="conflict";xref.conflicts.push("doi_mismatch");base.xref=xref;return base;
+      xref.status="conflict";xref.conflicts.push("doi_mismatch");base.xref=xref;base.xref_status=xref.status;base.xref_source=xref.source;return base;
     }
     const titleScore=similarity(prior.title,external.title);
     xref.title_similarity=Number(titleScore.toFixed(3));
@@ -85,7 +85,7 @@
     if(y1&&y2&&Math.abs(y1-y2)>1)xref.conflicts.push("publication_year_mismatch");
     const a1=surnames(prior.authors),a2=surnames(external.authors);
     if(a1.length&&a2.length&&!a1.some(a=>a2.includes(a)))xref.conflicts.push("author_mismatch");
-    if(xref.conflicts.length){xref.status="conflict";base.xref=xref;return base;}
+    if(xref.conflicts.length){xref.status="conflict";base.xref=xref;base.xref_status=xref.status;base.xref_source=xref.source;return base;}
     xref.status="registry_match"; // One registrar is not independent multi-source confirmation.
     // Only missing, limited fields may be filled. Never replace a source value.
     for(const key of ["year","date","journal","authors"]){
@@ -105,10 +105,10 @@
     // Abstracts in registries may have copyright/reuse restrictions.
     // Do not inject abstract HTML or assume search-result snippets are abstracts.
     xref.abstract_policy="not_auto_copied";
-    base.xref=xref;return base;
+    base.xref=xref;base.xref_status=xref.status;base.xref_source=xref.source;return base;
   }
   function flagged(record,status,details=""){
-    const result={...record,xref:{version:1,status,
+    const result={...record,xref_status:status,xref_source:"",xref:{version:1,status,
       doi:doi(record.doi),checked_at:null,source:"",metadata_url:"",
       original:sourceFields(record),field_provenance:{},conflicts:[],
       suggested:{},note:details}};
