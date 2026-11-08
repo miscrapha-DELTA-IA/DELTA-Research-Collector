@@ -1,7 +1,7 @@
 /* DELTA Research Collector, v0.4.1. GPL-3.0-or-later. */
 (() => {
   "use strict";
-  const fields = ["source", "identifier", "title", "authors", "year", "date", "doi", "abstract", "article_url", "pdf_url", "journal", "search_url", "search_query", "search_parameters", "access_status", "access_evidence", "access_url", "access_checked_at", "collected_at", "sources"];
+  const fields = ["source", "identifier", "title", "authors", "year", "date", "doi", "abstract", "article_url", "pdf_url", "journal", "search_url", "search_query", "search_parameters", "access_status", "access_evidence", "access_url", "access_checked_at", "collected_at", "sources", "xref_status", "xref_source", "xref"];
 
   function clean(value) {
     return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -45,7 +45,7 @@
         doi: r.doi,
         abstract: r.abstract,
         url: r.article_url,
-        note: [r.pdf_url ? `PDF: ${r.pdf_url}` : "",r.access_status?`Acesso: ${r.access_status}`:"",r.search_query?`Busca: ${String(r.search_query).slice(0,250)}`:"",(r.sources||[]).length?`Fontes: ${r.sources.join(", ")}`:""].filter(Boolean).join("; "),
+        note: [r.pdf_url ? `PDF: ${r.pdf_url}` : "",r.access_status?`Acesso: ${r.access_status}`:"",r.search_query?`Busca: ${String(r.search_query).slice(0,250)}`:"",(r.sources||[]).length?`Fontes: ${r.sources.join(", ")}`:"",r.xref_status?`XRef: ${r.xref_status}${r.xref_source?" / "+r.xref_source:""}`:""].filter(Boolean).join("; "),
         journal: r.journal
       };
       for (const [field, value] of Object.entries(values)) {
@@ -321,7 +321,8 @@
       for(const author of (Array.isArray(r.authors)?r.authors:clean(r.authors).split(';').filter(Boolean))) {
         if(clean(author))lines.push(`AU  - ${clean(author)}`);
       }
-      lines.push(`N1  - DELTA Research Collector; fontes: ${(r.sources||[r.source]).join(', ')}; acesso: ${r.access_status||'unknown'}`);if(r.search_query)lines.push(`N1  - Busca: ${clean(r.search_query).slice(0,500)}`);if(r.search_url)lines.push(`N1  - URL de busca: ${clean(r.search_url).slice(0,1600)}`);
+      lines.push(`N1  - DELTA Research Collector; fontes: ${(r.sources||[r.source]).join(', ')}; acesso: ${r.access_status||'unknown'}`);
+      if(r.xref_status)lines.push(`N1  - XRef: ${r.xref_status}${r.xref_source?"; registrador: "+r.xref_source:""}; detalhes de evidência no CSV/JSON.`);if(r.search_query)lines.push(`N1  - Busca: ${clean(r.search_query).slice(0,500)}`);if(r.search_url)lines.push(`N1  - URL de busca: ${clean(r.search_url).slice(0,1600)}`);
       lines.push('ER  - ');
       return lines.join('\r\n');
     }).join('\r\n\r\n')+'\r\n';
