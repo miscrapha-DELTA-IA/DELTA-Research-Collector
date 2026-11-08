@@ -65,6 +65,23 @@ const merge=(a,b)=>{
   if(!r.doi&&b.doi)r.doi=b.doi;
   const rank={unknown:0,no_open_copy_found:1,publisher_restricted:2,open:3};
   if((rank[b.access_status]||0)>(rank[r.access_status]||0))for(const k of ['access_status','access_evidence','access_url','access_checked_at'])r[k]=b[k]||'';
+  // Preserve distinct original snapshots during DOI-based library merges.
+  // No source's verification evidence may disappear simply because another
+  // provider contributed a longer title, journal or author list.
+  const entries=[...(Array.isArray(a.xref_audit)?a.xref_audit:(a.xref?[a.xref]:[])),
+    ...(Array.isArray(b.xref_audit)?b.xref_audit:(b.xref?[b.xref]:[]))];
+  const keys=new Set();
+  r.xref_audit=entries.filter(e=>{
+    if(!e||typeof e!=='object')return false;
+    const key=JSON.stringify([e.checked_at,e.source,e.status,e.original?.title]);
+    if(keys.has(key))return false;keys.add(key);return true;
+  }).slice(-12);
+  // A conflict is never replaced by an optimistic match without review.
+  const chosen=a.xref?.status==='conflict'?a.xref:
+    b.xref?.status==='conflict'?b.xref:
+    (b.xref?.status==='registry_match'?b.xref:
+     a.xref?.status==='registry_match'?a.xref:(b.xref||a.xref));
+  if(chosen){r.xref=chosen;r.xref_status=chosen.status;r.xref_source=chosen.source||'';}
   return r;
 };
 // Sequential mutation queue prevents two tabs overwriting the library concurrently.
