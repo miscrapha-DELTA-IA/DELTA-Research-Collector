@@ -1135,6 +1135,118 @@
   $("ieee-file").addEventListener("change", () => {
     if ($("ieee-file").files?.length) void importIEEECSV();
   });
+  // Explicit continuation after initial export. The user does not have to
+  // rerun the original search or re-download all CAPES pages.
+  async function continueXrefLibrary(){
+    if(state.running)return;
+    state.cancel=false;setPanel(true);setBusy(true);
+    try{
+      const before=await message({type:"DELTA_LIBRARY_GET"});
+      const all=before.records||[];
+      if(!all.length)throw Error("Biblioteca vazia; habilite o armazenamento local na coleta.");
+      const engine=globalThis.DELTA_XREF;
+      if(!engine)throw Error("Motor de verificação indisponível; recarregue a extensão.");
+      const eligible=all.filter(r=>engine.validDoi(engine.doi(r.doi))&&
+        !["registry_match","conflict"].includes(r.xref?.status||r.xref_status));
+      const rank=r=>r.xref_status==="not_checked_budget"||!r.xref_status?0:
+        r.xref_status==="lookup_error"?1:r.xref_status==="cancelled"?2:3;
+      eligible.sort((a,b)=>rank(a)-rank(b));
+      if(!eligible.length){
+        setStatus("Cross-reference: nenhum DOI pendente; consulte os registros sem DOI ou os conflitos.");
+        return;
+      }
+      const batch=eligible.slice(0,2000);
+      setStatus("Cross-reference: verificando novo lote de até 30 DOIs, com cache local…");
+      const verified=await verifyAcrossSources(batch,true);
+      if(!state.cancel){
+        await message({type:"DELTA_LIBRARY_ADD",records:verified.records,
+          run:{source:"biblioteca_local",url:"",
+            retrieval_mode:"xref_progressive_continuation_v061",partial:verified.summary.remaining>0,
+            note:"Enriquecimento de metadados por DOI, sem adição de estudos à busca"}});
+      }
+      const refreshed=await message({type:"DELTA_LIBRARY_GET"});
+      const exported=refreshed.records||[];
+      const summary={...verified.summary,checked_library_records:batch.length,
+        total_library_records:exported.length,
+        original_search_not_rerun:true,
+        warning:state.cancel?"Interrompido; resultados não gravados na biblioteca.":"A verificação bibliográfica não comprova cobertura da busca nem correspondência independente."};
+      const timestamp=new Date().toISOString().replace(/[:.]/g,"-").slice(0,19);
+      saveText(core.toCsv(exported),"DELTA_biblioteca_xref_"+timestamp+".csv",
+        "text/csv;charset=utf-8");
+      saveText(JSON.stringify({generator:"DELTA Research Collector 0.6.1",
+        retrieval_mode:"xref_progressive_continuation_v061",
+        exported_at:new Date().toISOString(),xref_summary:summary,
+        note:"Registros provenientes da biblioteca local; URLs e consultas originais foram preservadas.",
+        records:exported},null,2),
+        "DELTA_biblioteca_xref_"+timestamp+"_auditoria.json","application/json;charset=utf-8");
+      setStatus("XRef: "+verified.summary.unique_doi_lookups+" novas consultas, "+
+        verified.summary.cache_hits+" do cache; biblioteca com "+exported.length+
+        " registros. CSV e auditoria JSON exportados.");
+      refreshLibrary().catch(()=>{});
+    }catch(error){setStatus("XRef: "+error.message,true);}
+    finally{setBusy(false);}
+  }
+
+  // Manual DOI discovery is intentionally separate from ordinary collection.
+  // Candidates never modify or enter the bibliographic library.
+  async function exportNoDoiReview(){
+    if(state.running)return;
+    state.cancel=false;setPanel(true);setBusy(true);
+    try{
+      const data=await message({type:"DELTA_LIBRARY_GET"});
+      const engine=globalThis.DELTA_XREF;
+      if(!engine)throw Error("Motor de verificação indisponível.");
+      const unresolved=(data.records||[]).filter(r=>
+        !engine.validDoi(engine.doi(r.doi))&&String(r.title||"").trim().length>=15);
+      if(!unresolved.length){
+        setStatus("XRef: não há referências sem DOI elegíveis na biblioteca.");return;
+      }
+      const selected=unresolved.slice(0,5);
+      const reviews=[];
+      for(let i=0;i<selected.length&&!state.cancel;i++){
+        const record=selected[i];
+        setStatus("Pesquisa assistida: "+(i+1)+"/"+selected.length+
+          " títulos enviados ao Crossref; sem atribuição automática de DOI.");
+        try{
+          const url="https://api.crossref.org/works?query.bibliographic="+
+            encodeURIComponent(record.title.slice(0,240))+"&rows=3";
+          const response=await message({type:"DELTA_FETCH",url});
+          if(response.status!==200)throw Error("Crossref: HTTP "+response.status);
+          reviews.push(engine.candidateReview(record,JSON.parse(response.text)));
+        }catch(error){
+          reviews.push({original:{source:record.source,identifier:record.identifier,
+            title:record.title,doi:record.doi},candidates:[],review_required:true,
+            auto_assigned:false,error:String(error.message||error).slice(0,180)});
+        }
+        if(i+1<selected.length)await sleep(650);
+      }
+      const timestamp=new Date().toISOString().replace(/[:.]/g,"-").slice(0,19);
+      saveText(JSON.stringify({generator:"DELTA Research Collector 0.6.1",
+        kind:"manual_doi_candidate_review",created_at:new Date().toISOString(),
+        total_without_valid_doi:unresolved.length,
+        reviewed_in_this_export:reviews.length,
+        remaining_unsearched:unresolved.length-reviews.length,
+        source:"Crossref bibliographic search (titles sent only after user click)",
+        warning:"CANDIDATOS NÃO CONFIRMADOS. O DELTA não atribuiu DOI, não fundiu registros e não acrescentou estudos. Exige revisão humana contra registro da editora/DOI.",
+        reports:reviews},null,2),
+        "DELTA_xref_candidatos_sem_doi_"+timestamp+".json",
+        "application/json;charset=utf-8");
+      setStatus("XRef: "+reviews.length+" referências sem DOI examinadas. "+
+        "Relatório de candidatos exportado SEM qualquer alteração na biblioteca.");
+    }catch(error){setStatus("XRef: "+error.message,true);}
+    finally{setBusy(false);}
+  }
+  $("xref-continue").addEventListener("click",()=>void continueXrefLibrary());
+  $("xref-review").addEventListener("click",()=>void exportNoDoiReview());
+  $("xref-cache-clear").addEventListener("click",async()=>{
+    if(state.running)return;
+    if(!window.confirm("Apagar somente o cache local de metadados DOI? A biblioteca e o histórico não serão apagados."))return;
+    try{
+      await message({type:"DELTA_XREF_CACHE_CLEAR"});
+      xrefCache.clear();
+      setStatus("Cache DOI apagado. A biblioteca e os dados já exportados foram preservados.");
+    }catch(error){setStatus("Falha ao apagar cache DOI: "+error.message,true);}
+  });
   $('config').addEventListener('click',showStrategy);
   $('refresh').addEventListener('click',()=>refreshLibrary().catch(e=>$('library-info').textContent=e.message));
   for(const form of ['ris','bib','csv','json','html']) $('library-'+form).addEventListener('click',()=>exportLibrary(form));
