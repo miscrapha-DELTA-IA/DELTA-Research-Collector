@@ -156,7 +156,7 @@ chrome.action.onClicked.addListener(async tab => {
   const send=()=>new Promise(resolve=>chrome.tabs.sendMessage(tab.id,{type:'DELTA_TOGGLE'},()=>resolve(!chrome.runtime.lastError)));
   if(await send())return;
   try {
-    await chrome.scripting.executeScript({target:{tabId:tab.id},files:['collector-core.js','review-matrix.js','content.js']});
+    await chrome.scripting.executeScript({target:{tabId:tab.id},files:['collector-core.js','xref-engine.js','review-matrix.js','content.js']});
     if(await send())return;
     await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>{
       const id='delta-notice';document.getElementById(id)?.remove();
