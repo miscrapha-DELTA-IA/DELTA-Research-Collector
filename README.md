@@ -37,13 +37,17 @@
 
 O fluxo foi criado para quem alterna entre diferentes mecanismos de descoberta de literatura e precisa **evitar copiar referências manualmente**, **manter a estratégia de busca** e **distinguir resultados recuperados de resultados apenas encontrados**.
 
-## Cross-Reference Engine v0.6.0 — verificação bibliográfica transversal
+## Cross-Reference Engine v0.6.1 — verificação progressiva e revisão assistida
 
 A mesma etapa de verificação por DOI é oferecida para todas as fontes do DELTA, incluindo coleta CAPES, PubMed, SciELO, arXiv e importações oficiais. Depois da coleta, o DELTA consulta o DOI exato no **Crossref**, com tentativa de **DataCite** quando não existir no primeiro registrador. A opção fica marcada por padrão no painel, com indicação clara de que envia DOIs a serviços externos. Desmarque-a para manter a coleta completamente local nessa etapa.
 
 **Integridade:** preserva os metadados de origem em `xref.original`; somente campos originalmente vazios podem ser preenchidos após comparação rigorosa do DOI, título, ano e autoria. Campos divergentes não são substituídos. A verificação **não** insere nem exclui artigos da busca, nem comprova fidelidade de todos os metadados. Registros sem DOI ou fora do limite permanecem explicitamente não verificados.
 
-**Primeiro lote conservador:** até **30 DOIs únicos** por operação, com controle de concorrência. A auditoria registra `xref_summary`; CSV/JSON incluem a origem e evidência por campo. `registry_match` representa correspondência com **um** registrador, não confirmação por duas fontes independentes. Resumos não são copiados automaticamente por restrições potenciais de direitos autorais.
+**Lotes progressivos:** a verificação inicial consulta até **30 DOIs novos** por coleta. Em **Biblioteca e matriz → Verificar próximo lote (30 DOIs)**, cada clique retoma pela biblioteca local sem repetir a busca original; resultados válidos ficam em cache local por até **30 dias**, e respostas DOI não localizado por até **3 dias**. O DELTA exporta `DELTA_biblioteca_xref_*.csv` e `*_auditoria.json` depois de cada continuação. Os registros já verificados são preservados, e o orçamento de consultas não é consumido por cache válido.
+
+**Diferenças cosméticas:** entidades HTML como `&amp;`, caixa e pontuação são normalizadas **apenas na comparação**, sem sobrescrever o dado original. Diferenças reais de ano, periódico ou autoria continuam registradas para revisão. `registry_match` representa compatibilidade com **um** registrador, não confirmação independente.
+
+**Sem DOI:** o botão **Candidatos sem DOI (revisão humana)** consulta explicitamente títulos no Crossref (até **5 referências por execução**, no máximo 3 candidatos por título) e gera um JSON `DELTA_xref_candidatos_sem_doi_*.json`. Nenhum candidato é inserido no registro, na biblioteca ou no conjunto recuperado. A busca por título somente ocorre após o clique, e os títulos enviados ao Crossref são informados na interface.
 
 [Política, estados de verificação, evidências e roadmap técnico](docs/CROSS_REFERENCE.md)
 
@@ -52,7 +56,7 @@ A mesma etapa de verificação por DOI é oferecida para todas as fontes do DELT
 - **Um botão de coleta** nas páginas compatíveis, com limites configuráveis por operação.
 - **Exportação bibliográfica** em CSV, RIS (importável no Zotero), BibTeX e JSON.
 - **Registro de estratégia** em `*_estrategia.json` com URL, termos e parâmetros recuperáveis.
-- **Cross-reference por DOI (v0.6.0):** consulta opcional de metadados em registradores e proveniência por campo, mantendo o original preservado.
+- **Cross-reference por DOI (v0.6.1):** consulta opcional de metadados em registradores e proveniência por campo, mantendo o original preservado.
 - **Biblioteca consolidada no navegador**, com deduplicação por DOI e histórico de operações.
 - **Sinais de acesso ao texto completo**, incluindo cópia aberta identificada, restrição da editora ou status desconhecido.
 - **PDFs do arXiv**, até 20 solicitações opcionais por coleta, sem contornar controles de acesso.
