@@ -194,17 +194,66 @@
   }
   function buildOpenAlexUrl(href, page, size) {
     const current = new URL(href);
-    const search = current.searchParams.get('search') || current.searchParams.get('q') || '';
-    const filter = current.searchParams.get('filter') || '';
-    if (!search && !filter) throw new Error('OpenAlex: inicie uma busca ou aplique filtros antes de exportar.');
-    // Changes to unsupported query semantics should not be hidden from the researcher.
-    const unsupported = [...current.searchParams.keys()].filter(k => !['search','q','filter','sort','page','per_page','view','column','columns','tab'].includes(k));
-    if (unsupported.length) throw new Error(`OpenAlex: parâmetro da busca não suportado: ${unsupported.join(', ')}.`);
-    const u = new URL('https://api.openalex.org/works');
-    if (search) u.searchParams.set('search',search);
-    if (filter) u.searchParams.set('filter',filter);
-    if (current.searchParams.has('sort')) u.searchParams.set('sort',current.searchParams.get('sort'));
-    u.searchParams.set('page',String(page)); u.searchParams.set('per_page',String(size));
+    if(!['openalex.org','www.openalex.org'].includes(current.hostname) ||
+       !/^\/works\/?$/.test(current.pathname))
+      throw new Error('OpenAlex: URL de busca de trabalhos inválida.');
+    if(!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(size)||size<1||size>200)
+      throw new Error('OpenAlex: paginação inválida.');
+    // OpenAlex's website now defaults to search.title_abstract_keywords.
+    // It MUST retain its API scope: mapping it to search= would also match
+    // full text and change the retrieved set, silently corrupting PRISMA.
+    const searchKeys=[
+      'search','search.exact','search.title','search.title.exact',
+      'search.title_and_abstract','search.title_and_abstract.exact',
+      'search.title_abstract_keywords','search.title_abstract_keywords.exact',
+      'search.semantic'
+    ];
+    const allowed=new Set([
+      ...searchKeys,'q','filter','sort','page','per_page','per-page',
+      'view','column','columns','tab','rerank'
+    ]);
+    const unsupported=[...new Set([...current.searchParams.keys()].filter(k=>!allowed.has(k)))];
+    if(unsupported.length)
+      throw new Error('OpenAlex: parâmetro da busca não suportado: '+unsupported.join(', ')+'.');
+    // q is a legacy UI alias. Never broaden/narrow a query by silently
+    // mixing it with the native scoped search parameters.
+    const qValues=current.searchParams.getAll('q');
+    const active=searchKeys.filter(k=>current.searchParams.has(k));
+    if(qValues.length>1|| (qValues.length&&active.length))
+      throw new Error('OpenAlex: parâmetros de pesquisa ambíguos (q e search.*); revise a URL.');
+    for(const k of [...searchKeys,'filter','sort','rerank']){
+      if(current.searchParams.getAll(k).length>1)
+        throw new Error('OpenAlex: parâmetro repetido não reproduzível: '+k+'.');
+    }
+    if(active.includes('search.semantic')&&active.length>1)
+      throw new Error('OpenAlex: search.semantic não pode ser combinado com outra pesquisa.');
+    if(active.includes('search.semantic')&&current.searchParams.has('rerank'))
+      throw new Error('OpenAlex: não é possível reproduzir a combinação semantic + rerank.');
+    const filter=current.searchParams.get('filter')||'';
+    if(!active.length&&!qValues.some(x=>x.trim())&&!filter)
+      throw new Error('OpenAlex: inicie uma busca ou aplique filtros antes de exportar.');
+    const u=new URL('https://api.openalex.org/works');
+    for(const k of active){
+      const value=current.searchParams.get(k);
+      if(!value||!value.trim())throw new Error('OpenAlex: campo de busca vazio: '+k+'.');
+      u.searchParams.set(k,value);
+    }
+    if(qValues.length&&qValues[0].trim())u.searchParams.set('search',qValues[0]);
+    if(filter)u.searchParams.set('filter',filter);
+    if(current.searchParams.has('sort')){
+      const sort=current.searchParams.get('sort');
+      if(sort)u.searchParams.set('sort',sort);
+    }
+    if(current.searchParams.has('rerank')){
+      const rerank=current.searchParams.get('rerank');
+      if(!['true','false'].includes(rerank))
+        throw new Error('OpenAlex: rerank deve ser true ou false.');
+      u.searchParams.set('rerank',rerank);
+    }
+    // The original page size / page number are replaced intentionally by
+    // DELTA's explicit pagination, without changing search scope or filters.
+    u.searchParams.set('page',String(page));
+    u.searchParams.set('per_page',String(size));
     return u.toString();
   }
   function uninvertAbstract(index) {
@@ -429,6 +478,16 @@
     for(const [k,v] of u.searchParams.entries())if(!sensitive.test(k)){(params[k] ||= []).push(v.slice(0,3000));}
     let q='';
     for(const k of ['queryText','querytext','query','q','term','search','searchTerm','searchtext','searchText','terms-0-term'])if(params[k]?.length){q=params[k][0];break;}
+    if(!q&&detectProvider(href)==='openalex'){
+      // A field-scoped OpenAlex query must be visible in the strategy JSON,
+      // not just encoded in search_parameters.
+      const keys=['search.exact','search.title','search.title.exact',
+        'search.title_and_abstract','search.title_and_abstract.exact',
+        'search.title_abstract_keywords','search.title_abstract_keywords.exact','search.semantic'];
+      const scoped=keys.filter(k=>params[k]?.length)
+        .map(k=>k+': '+params[k][0]);
+      if(scoped.length)q=scoped.join(' AND ');
+    }
     if(!q&&u.pathname.startsWith('/search/')){const parts=u.pathname.split('/').filter(Boolean);if(parts[1]&&!['searchresult.jsp','advanced','articles'].includes(parts[1]))q=decodeURIComponent(parts[1]).slice(0,1500);}
     const safe=new URL(u.origin+u.pathname);
     for(const [k,values] of Object.entries(params))for(const v of values)safe.searchParams.append(k,v);

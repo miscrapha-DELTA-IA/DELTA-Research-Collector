@@ -143,6 +143,15 @@ A extração foi endurecida para obter o ano da linha de publicação do cartão
 
 **Independente e não homologada pela CAPES.** Preserve a URL, os parâmetros e o relatório de cobertura e confira uma amostra contra os resultados originais antes de usar os dados em estudo científico.
 
+## OpenAlex — correção de escopo de busca (v0.6.2)
+
+O OpenAlex passou a usar `search.title_abstract_keywords` na interface de busca de trabalhos. Na v0.6.1, a extensão bloqueava esse parâmetro por não reconhecê-lo, mesmo sendo documentado oficialmente. A v0.6.2 passa o parâmetro **sem converter para `search=`**, pois este último também pesquisa texto completo e retornaria outro conjunto de trabalhos.
+
+- Preserva `search.title_abstract_keywords`, `search.title_and_abstract`, `search.title`, variantes `.exact`, `search.semantic` (sem combinação com outros modos) e `search`; mantém `filter`, `sort` e `rerank` explícitos.
+- Retém a expressão com seu escopo em `search_query` e em `search_parameters` para rastreabilidade; substitui apenas os números de página/tamanho definidos pela coleta.
+- Continua bloqueando parâmetros desconhecidos, repetidos ou ambíguos. **Contagem de resultados e ordenação da API não são automaticamente equivalentes às da interface**; se a interface usar reranqueamento implícito, essa semântica não é inferida.
+- O API OpenAlex pode exigir chave de acesso ou apresentar limites de uso; essa correção ajusta o tradutor de consulta, não contorna restrições de acesso. Consulte a [documentação oficial de busca](https://help.openalex.org/api/searching/).
+
 ## Cobertura por base
 
 | Fonte | Estratégia de integração | Limitação a observar |

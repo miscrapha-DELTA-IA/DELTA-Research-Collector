@@ -34,6 +34,53 @@ assert.deepEqual(c.parsePubmedSearch({esearchresult:{count:'2',idlist:['1','2']}
 const u = new URL(c.buildOpenAlexUrl('https://openalex.org/works?search=transcriptomics&filter=publication_year%3A2024', 2, 100));
 assert.equal(u.searchParams.get('filter'),'publication_year:2024');
 assert.equal(u.searchParams.get('page'),'2');
+
+const scopedInput='https://openalex.org/works?search.title_abstract_keywords='+
+  encodeURIComponent('("self-fulfilling prophecy" OR "performative prediction") AND medical')+
+  '&filter='+encodeURIComponent('from_publication_date:2019-01-01,to_publication_date:2026-12-31')+
+  '&sort=publication_date:desc&page=4&per-page=25';
+const scopedOutput=new URL(c.buildOpenAlexUrl(scopedInput,1,100));
+assert.equal(scopedOutput.origin,'https://api.openalex.org');
+assert.equal(scopedOutput.pathname,'/works');
+assert.equal(scopedOutput.searchParams.get('search.title_abstract_keywords'),
+  '("self-fulfilling prophecy" OR "performative prediction") AND medical',
+  'Do not broaden title/abstract/keywords into fulltext search');
+assert.equal(scopedOutput.searchParams.has('search'),false,
+  'Scoped search must NOT silently fall back to fulltext search');
+assert.equal(scopedOutput.searchParams.get('filter'),
+  'from_publication_date:2019-01-01,to_publication_date:2026-12-31');
+assert.equal(scopedOutput.searchParams.get('sort'),'publication_date:desc');
+assert.equal(scopedOutput.searchParams.get('page'),'1');
+assert.equal(scopedOutput.searchParams.get('per_page'),'100');
+const preservedContext=c.searchContext(scopedInput);
+assert.equal(preservedContext.parameters['search.title_abstract_keywords'][0],
+  '("self-fulfilling prophecy" OR "performative prediction") AND medical');
+assert.match(preservedContext.query,/^search\.title_abstract_keywords:/,
+  'Auditable strategy must name field scope');
+assert.equal(new URL(preservedContext.url).searchParams.get('search.title_abstract_keywords'),
+  scopedOutput.searchParams.get('search.title_abstract_keywords'));
+const precise=new URL(c.buildOpenAlexUrl('https://openalex.org/works?'+
+  'search.title_and_abstract=%22dengue%22&filter=publication_year%3A2025&rerank=true',
+  2,50));
+assert.equal(precise.searchParams.get('search.title_and_abstract'),'"dengue"');
+assert.equal(precise.searchParams.get('rerank'),'true');
+assert.equal(precise.searchParams.has('search'),false);
+const titleOnly=new URL(c.buildOpenAlexUrl('https://openalex.org/works?search.title=malaria',1,20));
+assert.equal(titleOnly.searchParams.get('search.title'),'malaria');
+const exactOnly=new URL(c.buildOpenAlexUrl('https://openalex.org/works?search.title_abstract_keywords.exact='+
+  encodeURIComponent('"machine learning"'),1,20));
+assert.equal(exactOnly.searchParams.get('search.title_abstract_keywords.exact'),'"machine learning"');
+assert.throws(()=>c.buildOpenAlexUrl('https://openalex.org/works?'+
+  'search.title_abstract_keywords=dengue&search=malaria&q=dengue',1,100),/ambíguos/);
+assert.throws(()=>c.buildOpenAlexUrl('https://openalex.org/works?'+
+  'search.title_abstract_keywords=dengue&unknown_facets=year',1,100),/não suportado/);
+assert.throws(()=>c.buildOpenAlexUrl('https://openalex.org/works?'+
+  'search.title_abstract_keywords=dengue&search.title_abstract_keywords=malaria',1,100),/repetido/);
+assert.throws(()=>c.buildOpenAlexUrl('https://openalex.org/works?'+
+  'search.semantic=diagnosis&search.title_abstract_keywords=dengue',1,100),/search\.semantic/);
+assert.throws(()=>c.buildOpenAlexUrl('https://openalex.org/works?search.title_abstract_keywords=',1,100),/campo de busca vazio/);
+console.log('PASS: OpenAlex UI scoped search preserved without fulltext broadening, filters/ranking and fail-closed semantics.');
+
 assert.equal(c.uninvertAbstract({'expression':[1],'Gene':[0],'matters':[2]}),'Gene expression matters');
 const oa = c.parseOpenAlex({meta:{count:3},results:[{id:'https://openalex.org/W123',title:'Molecular Biology',doi:'https://doi.org/10.1000/abc',authorships:[{author:{display_name:'Ana Silva'}}],best_oa_location:{pdf_url:'https://example.org/a.pdf'},abstract_inverted_index:{Gene:[0],regulation:[1]},publication_year:2024}]});
 assert.equal(oa.records[0].doi,'10.1000/abc');
