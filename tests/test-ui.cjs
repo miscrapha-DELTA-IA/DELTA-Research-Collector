@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const script = fs.readFileSync(require("node:path").join(__dirname, "..", "content.js"), "utf8");
 const ids = ["delta-panel","delta-source","delta-query-preview","delta-filter-preview","delta-max","delta-format",
-"delta-coverage-options","delta-xref-label","delta-xref","delta-expected-total","delta-audit-result","delta-start","delta-cancel","delta-progress","delta-status",
+"delta-coverage-options","delta-xref-label","delta-xref","delta-xref-continue","delta-xref-review","delta-xref-cache-clear","delta-expected-total","delta-audit-result","delta-start","delta-cancel","delta-progress","delta-status",
 "delta-one-click","delta-config","delta-ieee-action","delta-ieee-file","delta-ieee-import-run","delta-capes-action","delta-capes-file","delta-capes-import-run","delta-capes-diagnostic",
 "delta-library","delta-library-html","delta-library-csv","delta-library-json","delta-library-ris","delta-library-bib",
 "delta-strategy","delta-strategy-export","delta-oa-label","delta-local-label","delta-pdf-label","delta-clear"];
@@ -41,3 +41,11 @@ assert.match(script,/await verifyAcrossSources\(rows,run\.xrefEnabled/, "CAPES p
 assert.match(script,/await verifyAcrossSources\(rows,!state\.cancel\)/, "Every regular collector must run XRef");
 assert.match(script,/await verifyAcrossSources\(parsed\.records\)/, "File importers must run XRef");
 assert.match(script,/xref_summary:/, "XRef summary must be included in strategy report");
+
+assert.match(script,/async function continueXrefLibrary\(/,"XRef continuation must be explicitly accessible");
+assert.match(script,/DELTA_XREF_CACHE_GET/,"Cross-reference must preload persistent metadata");
+assert.match(script,/DELTA_XREF_CACHE_SET/,"Cross-reference must retain verified metadata after lookup");
+assert.match(script,/await verifyAcrossSources\(batch,true\)/,"Continuation must use the universal engine");
+assert.match(script,/function exportNoDoiReview\(/,"DOI candidate review must be separate and user-triggered");
+assert.match(script,/UNVERIFIED_CANDIDATE_DO_NOT_AUTO_ASSIGN|candidateReview\(/,"Candidates must not be assigned automatically");
+assert.match(script,/DELTA_biblioteca_xref_/,"Continuations must export an audited bibliographic CSV");

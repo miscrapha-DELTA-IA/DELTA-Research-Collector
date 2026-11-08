@@ -7,7 +7,7 @@ const vm=require('node:vm');
   runtime:{onMessage:{addListener(fn){handler=fn;}},lastError:null},
   action:{onClicked:{addListener(){}}},
   tabs:{sendMessage(){},create(){}},
-  storage:{local:{async get(keys){const out={};for(const k of keys)out[k]=db[k];return out;},async set(rows){Object.assign(db,rows);},async remove(keys){for(const k of keys)delete db[k];}},session:{async get(keys){const out={};for(const k of [keys].flat())out[k]=session[k];return out;},async set(rows){Object.assign(session,rows);},async remove(keys){for(const k of [keys].flat())delete session[k];}}},
+  storage:{local:{async get(keys){const out={};for(const k of [keys].flat())out[k]=db[k];return out;},async set(rows){Object.assign(db,rows);},async remove(keys){for(const k of [keys].flat())delete db[k];}},session:{async get(keys){const out={};for(const k of [keys].flat())out[k]=session[k];return out;},async set(rows){Object.assign(session,rows);},async remove(keys){for(const k of [keys].flat())delete session[k];}}},
   downloads:{download(cfg,cb){cb(1)}}
  };
  vm.runInNewContext(fs.readFileSync(__dirname+'/../background.js','utf8'),{chrome,URL,AbortController,setTimeout,clearTimeout,fetch});
@@ -46,6 +46,39 @@ const vm=require('node:vm');
    "Both registrant and conflict snapshots must remain available");
  assert.equal(preserved.records[0].xref_audit[0].original.journal,"");
  assert.equal(preserved.records[0].xref_audit[1].original.journal,"Other");
+
+
+ const validRegistry={source:"Crossref",doi:"10.1234/example.42",
+   title:"Valid Research Reference",authors:["Ana Silva"],year:"2025",
+   date:"2025-07-15",journal:"Clinical Medicine",
+   metadata_url:"https://api.crossref.org/works/10.1234/example.42"};
+ const cacheSet=await msg({type:"DELTA_XREF_CACHE_SET",
+   doi:"10.1234/example.42",external:validRegistry});
+ assert.equal(cacheSet.saved,true);
+ assert.ok(cacheSet.expires_at>Date.now()+25*86400000);
+ const cacheGet=await msg({type:"DELTA_XREF_CACHE_GET",
+   dois:["10.1234/example.42","10.1234/elsewhere"]});
+ assert.equal(cacheGet.entries["10.1234/example.42"].external.title,
+   "Valid Research Reference");
+ assert.ok(!cacheGet.entries["10.1234/elsewhere"]);
+ assert.match((await msg({type:"DELTA_XREF_CACHE_SET",doi:"10.1234/invalid",
+   external:{...validRegistry,source:"Fake Registrar"}})).error,/inválidos/);
+ assert.match((await msg({type:"DELTA_XREF_CACHE_SET",doi:"10.1234/example.42",
+   external:{...validRegistry,metadata_url:"https://evil.example/record"}})).error,/não autorizada/);
+ assert.equal((await msg({type:"DELTA_XREF_CACHE_SET",doi:"10.1234/no-match",
+   external:null})).saved,true);
+ const misses=await msg({type:"DELTA_XREF_CACHE_GET",dois:["10.1234/no-match"]});
+ assert.equal(misses.entries["10.1234/no-match"].external,null);
+ // An expired entry must never satisfy a fresh lookup.
+ db.delta_xref_doi_cache_v061["10.1234/example.42"].expires_at=Date.now()-1;
+ const expiredCache=await msg({type:"DELTA_XREF_CACHE_GET",dois:["10.1234/example.42"]});
+ assert.ok(!expiredCache.entries["10.1234/example.42"]);
+ assert.equal((await msg({type:"DELTA_XREF_CACHE_CLEAR"})).cleared,true);
+ assert.equal((await msg({type:"DELTA_XREF_CACHE_GET",dois:["10.1234/no-match"]})).entries["10.1234/no-match"],undefined);
+ const libraryBeforeClear=await msg({type:"DELTA_LIBRARY_GET"});
+ assert.equal(libraryBeforeClear.records.length,1,
+   "Clearing DOI cache must never delete the bibliographic library");
+ console.log("PASS: XRef TTL cache, 404s, invalid provenance refusal and cache/library isolation.");
 
  await msg({type:'DELTA_LIBRARY_CLEAR',confirm:'APAGAR_BIBLIOTECA_LOCAL'});
  const empty=await msg({type:'DELTA_LIBRARY_GET'});
