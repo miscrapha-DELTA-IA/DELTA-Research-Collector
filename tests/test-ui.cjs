@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const script = fs.readFileSync(require("node:path").join(__dirname, "..", "content.js"), "utf8");
 const ids = ["delta-panel","delta-source","delta-query-preview","delta-filter-preview","delta-max","delta-format",
-"delta-coverage-options","delta-expected-total","delta-audit-result","delta-start","delta-cancel","delta-progress","delta-status",
+"delta-coverage-options","delta-xref-label","delta-xref","delta-expected-total","delta-audit-result","delta-start","delta-cancel","delta-progress","delta-status",
 "delta-one-click","delta-config","delta-ieee-action","delta-ieee-file","delta-ieee-import-run","delta-capes-action","delta-capes-file","delta-capes-import-run","delta-capes-diagnostic",
 "delta-library","delta-library-html","delta-library-csv","delta-library-json","delta-library-ris","delta-library-bib",
 "delta-strategy","delta-strategy-export","delta-oa-label","delta-local-label","delta-pdf-label","delta-clear"];
@@ -36,3 +36,8 @@ assert.match(script,/snapshot\.visibleRange\?\.start===requiredFirst/,"CAPES pag
 assert.match(script,/visible_start:snapshot\.visibleRange\.start/,"CAPES strategy must record each visible page range");
 assert.match(script,/missing_journal:/,"CAPES strategy must report missing bibliographic fields");
 assert.match(script,/missing_abstract:/,"CAPES strategy must distinguish missing article abstracts");
+
+assert.match(script,/await verifyAcrossSources\(rows,run\.xrefEnabled/, "CAPES paginated collector must run XRef");
+assert.match(script,/await verifyAcrossSources\(rows,!state\.cancel\)/, "Every regular collector must run XRef");
+assert.match(script,/await verifyAcrossSources\(parsed\.records\)/, "File importers must run XRef");
+assert.match(script,/xref_summary:/, "XRef summary must be included in strategy report");

@@ -21,6 +21,7 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check collector-core.js
+          node --check xref-engine.js
           node --check content.js
           node --check review-matrix.js
           node --check background.js
@@ -29,6 +30,7 @@ jobs:
           node tests/test-core.cjs
           node tests/test-background.cjs
           node tests/test-context.cjs
+          node tests/test-xref.cjs
           node tests/test-capes.cjs
           node tests/test-capes-browser.cjs
           node tests/test-review.cjs

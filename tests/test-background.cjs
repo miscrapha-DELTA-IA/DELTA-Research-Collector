@@ -25,6 +25,28 @@ const vm=require('node:vm');
  assert.equal(data.records[0].authors.length,2);
  assert.deepEqual([...data.records[0].sources],['PubMed','DOAJ']);
  assert.equal(data.history.length,2);
+
+ const evidenceA={version:1,status:"registry_match",source:"Crossref",
+   checked_at:"2026-11-07T20:00:00Z",original:{title:"Study",journal:""}};
+ const evidenceB={version:1,status:"conflict",source:"DataCite",
+   checked_at:"2026-11-07T20:01:00Z",original:{title:"Study",journal:"Other"}};
+ await msg({type:"DELTA_LIBRARY_ADD",
+   records:[{source:"CAPES",identifier:"77",doi:"10.1000/test",title:"Study",
+     xref_status:"registry_match",xref_source:"Crossref",xref:evidenceA}],
+   run:{source:"capes"}});
+ await msg({type:"DELTA_LIBRARY_ADD",
+   records:[{source:"DOAJ",identifier:"78",doi:"10.1000/test",title:"Study",
+     xref_status:"conflict",xref_source:"DataCite",xref:evidenceB}],
+   run:{source:"doaj"}});
+ const preserved=await msg({type:"DELTA_LIBRARY_GET"});
+ assert.equal(preserved.records.length,1);
+ assert.equal(preserved.records[0].xref_status,"conflict",
+   "Do not silently supersede a registered disagreement");
+ assert.equal(preserved.records[0].xref_audit.length,2,
+   "Both registrant and conflict snapshots must remain available");
+ assert.equal(preserved.records[0].xref_audit[0].original.journal,"");
+ assert.equal(preserved.records[0].xref_audit[1].original.journal,"Other");
+
  await msg({type:'DELTA_LIBRARY_CLEAR',confirm:'APAGAR_BIBLIOTECA_LOCAL'});
  const empty=await msg({type:'DELTA_LIBRARY_GET'});
  assert.equal(empty.records.length,0);
@@ -50,3 +72,8 @@ const vm=require('node:vm');
  console.log("PASS: CAPES per-tab session store, resume, clearing and origin/expiry guards.");
 
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+const allowlist=fs.readFileSync(__dirname+"/../background.js","utf8");
+assert.match(allowlist,/api\.datacite\.org/, "DataCite DOI API must be explicitly allowlisted");
+assert.match(allowlist,/api\.crossref\.org/, "Crossref DOI API must be explicitly allowlisted");
+assert.match(allowlist,/\x27xref-engine\.js\x27/, "Dynamic injection must load XRef engine");

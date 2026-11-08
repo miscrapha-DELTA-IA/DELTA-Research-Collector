@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.5.9. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.6.0. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -166,6 +166,7 @@
         <div class="status" id="delta-audit-result" role="status" aria-live="polite">Total não informado — completude ainda não verificada.</div>
       </div>
       <label class="check" id="delta-oa-label"><input type="checkbox" id="delta-oa"/><span>Verificar cópias abertas por DOI via OpenAlex (até 20; envia os DOIs).</span></label>
+      <label class="check" id="delta-xref-label"><input type="checkbox" id="delta-xref" checked/><span>Verificação cruzada por DOI (Crossref/DataCite; até 30 DOIs por coleta; envia DOIs aos registradores). Apenas campos vazios podem ser enriquecidos; conflitos são preservados.</span></label>
       <label class="check" id="delta-local-label"><input type="checkbox" id="delta-local" checked/><span>Adicionar registros à biblioteca local para deduplicação entre fontes (por DOI).</span></label>
       <label class="check" id="delta-pdf-label"><input type="checkbox" id="delta-pdf" /><span>Também solicitar PDFs do arXiv (máximo 20 por coleta).</span></label>
       <p class="note" id="delta-note">Até 2.000 registros por operação. Filtros não traduzidos serão bloqueados ou sinalizados. Respeita intervalos entre requisições.</p>
@@ -224,7 +225,7 @@
     const pageNum = Number.isSafeInteger(pageParam) && pageParam > 0 ? pageParam : null;
     pageInfo.textContent = (pageNum ? "Página " + pageNum : "Página atual") + " · até " + pageSize + " registros visíveis · coleta parcial";
   } else if (provider === "capes") {
-    pageInfo.textContent = "Portal CAPES · importação de arquivo bibliográfico oficial · sem coleta automática da página";
+    pageInfo.textContent = "Portal CAPES · coleta automática de páginas e verificação bibliográfica opcional";
   } else if (provider === "arxiv") {
     const pageSize = Math.max(10,Math.min(200,Number(pageUrl.searchParams.get("size")) || 50));
     const offset = Math.max(0,Number(pageUrl.searchParams.get("start")) || 0);
@@ -232,7 +233,7 @@
   } else {
     pageInfo.textContent = "Fonte: " + provider.toUpperCase() + " · consulte as condições de coleta abaixo";
   }
-  main.append(kicker,$("query-preview"),$("filter-preview"),pageInfo,baseFields,$("coverage-options"),$("local-label"),actionRow,$("ieee-action"),$("capes-action"),$("progress"),$("status"),$("note"));
+  main.append(kicker,$("query-preview"),$("filter-preview"),pageInfo,baseFields,$("coverage-options"),$("xref-label"),$("local-label"),actionRow,$("ieee-action"),$("capes-action"),$("progress"),$("status"),$("note"));
   const library = $("library");
   const clearRow = $("clear").parentElement;
   library.append(makeFold("Gerenciar dados locais","Exclusão de dados",clearRow,"delta-danger"));
@@ -347,6 +348,48 @@
     shadow.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
+  // Shared, DOI-first metadata verification for EVERY collector, including
+  // CAPES multi-page runs and native CAPES/IEEE imports. No search-by-title.
+  const xrefCache=new Map();
+  async function lookupRegistryMetadata(rawDoi) {
+    const engine=globalThis.DELTA_XREF;
+    const normalized=engine?.doi(rawDoi);
+    if(!engine?.validDoi(normalized))return null;
+    if(xrefCache.has(normalized))return xrefCache.get(normalized);
+    const encoded=normalized.split("/").map(encodeURIComponent).join("/");
+    const crossref="https://api.crossref.org/works/"+encoded;
+    const first=await message({type:"DELTA_FETCH",url:crossref});
+    let candidate=null;
+    if(first.status===200){
+      try{candidate=engine.crossref(JSON.parse(first.text));}
+      catch{throw Error("Crossref: resposta bibliográfica inválida");}
+      if(!candidate)throw Error("Crossref: registro DOI sem metadados confiáveis");
+    }else if(first.status===404){
+      const second=await message({type:"DELTA_FETCH",url:"https://api.datacite.org/dois/"+encoded});
+      if(second.status===200){
+        try{candidate=engine.datacite(JSON.parse(second.text));}
+        catch{throw Error("DataCite: resposta bibliográfica inválida");}
+        if(!candidate)throw Error("DataCite: registro DOI sem metadados confiáveis");
+      }else if(second.status!==404){
+        throw Error("DataCite: HTTP "+second.status);
+      }
+    }else throw Error("Crossref: HTTP "+first.status);
+    // Cache successful results and true 404s during the current browser page.
+    xrefCache.set(normalized,candidate);
+    return candidate;
+  }
+  async function verifyAcrossSources(rows,enabled=$("xref").checked){
+    if(!enabled||!globalThis.DELTA_XREF)
+      return {records:rows,summary:{enabled:false,records:rows.length,
+        reason:enabled?"engine_unavailable":"user_opted_out"}};
+    const results=await globalThis.DELTA_XREF.enrichRecords(rows,lookupRegistryMetadata,{
+      maxLookups:30,isCancelled:()=>state.cancel,
+      onProgress:({checked,requested})=>setStatus("Cross-reference: "+checked+
+        "/"+requested+" DOIs consultados; preservando metadados originais…")
+    });
+    return {...results,summary:{...results.summary,enabled:true,
+      caution:"Vínculo a um registrador não é segunda confirmação independente. Correspondências por título isolado são proibidas; registros ambíguos não foram alterados."}};
+  }
   function exportRows(rows, format, max, cancelled, truncated, collectorNote="", retrievalMode="provider_adapter", extraMetadata={}) {
     const now = new Date();
     const timestamp = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
@@ -354,7 +397,7 @@
     const context=strategy();
     const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.5.9",
+      generator: "DELTA Research Collector 0.6.0",
       source: provider, original_search_url: context.url, exported_at: now.toISOString(),
       search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
       retrieval_mode:retrievalMode,collector_note:collectorNote,
@@ -404,7 +447,7 @@
       const text=format==='html'?globalThis.DELTA_REVIEW.reviewHtml(data.records,{
         source:'biblioteca_local', exported_at:new Date().toISOString(), retrieval_mode:'local_merged_library',
         audit:globalThis.DELTA_REVIEW.auditCoverage({source:'biblioteca_local',collected:data.records.length})
-      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.5.9',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.6.0',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
       saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
       $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
@@ -449,6 +492,7 @@
         currentPage:1,pageSize,max,
         format:quick?"csv":$("format").value,
         saveLocal:$("local").checked,
+        xrefEnabled:$("xref").checked,
         verifyOA:!quick&&$("oa").checked,
         expectedTotal:reportedTotal,records:[],pages:[],warnings:[]
       };
@@ -478,6 +522,7 @@
     $("max").value=String(run.max);
     $("format").value=run.format;
     $("local").checked=run.saveLocal;
+    $("xref").checked=run.xrefEnabled!==false;
     if(Number.isSafeInteger(run.expectedTotal)&&run.expectedTotal>0)
       $("expected-total").value=String(run.expectedTotal);
     $("progress").max=run.expectedTotal||run.max;
@@ -583,7 +628,8 @@
         missing_full_date:rows.filter(r=>!r.date).length,
         note:"Resumo de resultado não equivale a abstract. Autoria visível pode estar abreviada; DOI, periódico e ano precisam de revisão independente."
       };
-      const records=exportRows(rows,run.format,run.max,state.cancel,incomplete,note,
+      const xref=await verifyAcrossSources(rows,run.xrefEnabled!==false&&!state.cancel);
+      const records=exportRows(xref.records,run.format,run.max,state.cancel,incomplete,note,
         "capes_browser_navigation_paged_experimental",{
           reported_total:expected,
           original_open_url:run.originalUrl,
@@ -591,7 +637,8 @@
           traversed_pages:run.pages,
           expected_search_total:expected,
           page_warnings:run.warnings,
-          metadata_quality:metadataQuality
+          metadata_quality:metadataQuality,
+          xref_summary:xref.summary
         });
       let saved="";
       if(run.saveLocal){
@@ -897,7 +944,8 @@
     try {
       if (rows.length) {
         if(!quick&&$('oa').checked&&!state.cancel){const oa=await checkOpenCopies(rows);collectorNote+=' | OA consultados: '+oa.checked+'; falhas: '+oa.errors;}
-        const records=exportRows(rows, format, max, state.cancel || !!failure, truncated,collectorNote,retrievalMode,{reported_total:reportedTotal,failure:failure?failure.message:null});
+        const xref=await verifyAcrossSources(rows,!state.cancel);
+        const records=exportRows(xref.records, format, max, state.cancel || !!failure, truncated,collectorNote,retrievalMode,{reported_total:reportedTotal,failure:failure?failure.message:null,xref_summary:xref.summary});
         let stored='';
         if($('local').checked){
           try{
@@ -951,11 +999,12 @@
       const coverage=expected===null?null:Number((100*count/expected).toFixed(2));
       const mode="capes_native_"+parsed.format.toLowerCase()+"_file_import";
       const note="Importação de arquivo bibliográfico CAPES "+parsed.format+": "+count+" registros e "+parsed.skipped+" entradas ignoradas. Busca original, filtros, ranking, identidade dos registros e completude não verificados. Nenhum acesso automatizado ao Portal CAPES.";
-      const records=exportRows(parsed.records,$("format").value,count,false,expected===null||count!==expected,note,mode,{
+      const xref=await verifyAcrossSources(parsed.records);
+      const records=exportRows(xref.records,$("format").value,count,false,expected===null||count!==expected,note,mode,{
         original_import_file:file.name,original_import_size:file.size,original_import_sha256:sha,
         import_format:parsed.format,imported_rows:count,skipped_rows:parsed.skipped,expected_search_total:expected,
         coverage_percent:coverage,completeness:expected===null?"not_verified":count===expected?"count_match_only":"count_mismatch",
-        query_fidelity:"not_independently_verified",imported_via:"user_selected_native_export"
+        query_fidelity:"not_independently_verified",imported_via:"user_selected_native_export",xref_summary:xref.summary
       });
       let saved="";
       if($("local").checked){
@@ -1045,7 +1094,8 @@
       const extra={original_import_file:file.name,original_import_size:file.size,imported_rows:count,skipped_rows:parsed.skipped,
         expected_search_total:expected,coverage_percent:coverage,
         completeness:complete?"count_match":expected===null?"not_verified":shortfall?"partial_count":"count_mismatch"};
-      const records=exportRows(parsed.records,format,count,false,shortfall,note,mode,extra);
+      const xref=await verifyAcrossSources(parsed.records);
+      const records=exportRows(xref.records,format,count,false,shortfall,note,mode,{...extra,xref_summary:xref.summary});
       let saved="";
       if($("local").checked){
         const ctx=strategy();
