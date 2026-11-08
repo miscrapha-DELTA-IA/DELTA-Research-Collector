@@ -1,4 +1,4 @@
-/* DELTA Research Collector, v0.6.2. GPL-3.0-or-later. */
+/* DELTA Research Collector, v0.6.3. GPL-3.0-or-later. */
 (() => {
   "use strict";
   if (document.getElementById("delta-research-collector-root")) return;
@@ -413,7 +413,7 @@
     const context=strategy();
     const records=rows.map(r=>core.accessInfo({...r,search_url:context.url,search_query:context.query,search_parameters:context.parameters,collected_at:now.toISOString()}));
     const metadata = {
-      generator: "DELTA Research Collector 0.6.2",
+      generator: "DELTA Research Collector 0.6.3",
       source: provider, original_search_url: context.url, exported_at: now.toISOString(),
       search_query:context.query,search_parameters:context.parameters,search_filters:context.filters,
       retrieval_mode:retrievalMode,collector_note:collectorNote,
@@ -463,9 +463,15 @@
       const text=format==='html'?globalThis.DELTA_REVIEW.reviewHtml(data.records,{
         source:'biblioteca_local', exported_at:new Date().toISOString(), retrieval_mode:'local_merged_library',
         audit:globalThis.DELTA_REVIEW.auditCoverage({source:'biblioteca_local',collected:data.records.length})
-      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.6.2',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
-      saveText(text,`DELTA_biblioteca_unificada_${now}.${format}`,format==='csv'?'text/csv;charset=utf-8':'text/plain;charset=utf-8');
-      $('library-info').textContent=`${data.records.length} artigos únicos exportados em ${format.toUpperCase()}.`;
+      }):format==='ris'?core.toRis(data.records):format==='bib'?core.toBibtex(data.records):format==='csv'?core.toCsv(data.records):JSON.stringify({generator:'DELTA Research Collector v0.6.3',exported_at:new Date().toISOString(),count:data.records.length,records:data.records,history:data.history},null,2);
+      const mime=format==='csv'?'text/csv;charset=utf-8':
+        format==='json'?'application/json;charset=utf-8':
+        format==='html'?'text/html;charset=utf-8':'text/plain;charset=utf-8';
+      const result=await message({type:"DELTA_EXPORT_FILE",
+        filename:`DELTA_biblioteca_unificada_${now}.${format}`,mime,content:text});
+      if(!result.started||!Number.isInteger(result.downloadId))
+        throw Error("O navegador não confirmou o início do download.");
+      $('library-info').textContent=`Download de ${data.records.length} artigos únicos iniciado (${format.toUpperCase()}, ID ${result.downloadId}). Verifique os downloads do Opera.`;
     }catch(e){$('library-info').textContent=`Falha ao exportar biblioteca: ${e.message}`;}
   }
 
@@ -1178,7 +1184,7 @@
       const timestamp=new Date().toISOString().replace(/[:.]/g,"-").slice(0,19);
       saveText(core.toCsv(exported),"DELTA_biblioteca_xref_"+timestamp+".csv",
         "text/csv;charset=utf-8");
-      saveText(JSON.stringify({generator:"DELTA Research Collector 0.6.2",
+      saveText(JSON.stringify({generator:"DELTA Research Collector 0.6.3",
         retrieval_mode:"xref_progressive_continuation_v061",
         exported_at:new Date().toISOString(),xref_summary:summary,
         note:"Registros provenientes da biblioteca local; URLs e consultas originais foram preservadas.",
@@ -1226,7 +1232,7 @@
         if(i+1<selected.length)await sleep(650);
       }
       const timestamp=new Date().toISOString().replace(/[:.]/g,"-").slice(0,19);
-      saveText(JSON.stringify({generator:"DELTA Research Collector 0.6.2",
+      saveText(JSON.stringify({generator:"DELTA Research Collector 0.6.3",
         kind:"manual_doi_candidate_review",created_at:new Date().toISOString(),
         total_without_valid_doi:unresolved.length,
         reviewed_in_this_export:reviews.length,
