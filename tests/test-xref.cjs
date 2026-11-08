@@ -72,6 +72,56 @@ const report=(async()=>{
  assert.match(globalThis.DELTA_CORE.toCsv(r.records),/xref_status/);
  assert.match(globalThis.DELTA_CORE.toBibtex(r.records),/XRef: registry\\_match/);
  assert.match(globalThis.DELTA_CORE.toRis(r.records),/XRef: registry_match/);
- console.log("PASS: DOI identity/author/year conflict guards, provenance, registry parsing, budgets and exports.");
+ 
+ const cosmetic=x.reconcile({...original,journal:"International Health &amp; Technology"},{
+   ...reg,journal:"International Health & Technology"
+ });
+ assert.equal(cosmetic.xref_status,"registry_match");
+ assert.ok(cosmetic.xref.cosmetic_differences.includes("journal"));
+ assert.equal(cosmetic.xref.suggested.journal,undefined,
+   "Cosmetic HTML entity differences must not be classified as conflicting metadata");
+ assert.equal(cosmetic.journal,"International Health &amp; Technology");
+ assert.ok(x.canonical("Biology &amp; Public Health")===x.canonical("Biology & Public Health"));
+ const yearReview=x.reconcile({...original,year:"2022"},{...reg,year:"2023"});
+ assert.ok(yearReview.xref.review_differences.includes("publication_year_online_vs_print"));
+ assert.equal(yearReview.year,"2022");
+ assert.ok(x.reconcile({...original,year:"2020"},{...reg,year:"2026"}).xref.conflicts.includes("publication_year_mismatch"));
+ let network=0;
+ const expiration=Date.now()+86400000;
+ const cache=new Map([["10.1234/example.42",{external:reg,expires_at:expiration,cached_at:Date.now()}]]);
+ const cached=await x.enrichRecords([
+   {...original,identifier:"cached"},
+   {...original,identifier:"other",doi:"10.1234/new"},
+   {...original,identifier:"unprocessed",doi:"10.1234/last"}
+ ],async key=>{network++;return {...reg,doi:key};},{
+   maxLookups:1,cache
+ });
+ assert.equal(network,1,"Valid cache entry must not consume the network budget");
+ assert.equal(cached.summary.cache_hits,1);
+ assert.equal(cached.summary.unique_doi_lookups,1);
+ assert.equal(cached.records[0].xref.cache_hit,true);
+ assert.equal(cached.records[2].xref_status,"not_checked_budget");
+ network=0;
+ const resumed=await x.enrichRecords([cached.records[0],cached.records[2]],async key=>{
+   network++;return {...reg,doi:key};
+ },{maxLookups:1});
+ assert.equal(resumed.summary.already_verified,1);
+ assert.equal(network,1,"Resume must skip earlier completed DOI");
+ assert.equal(resumed.records[1].xref_status,"registry_match");
+ const candidates=x.candidateReview({...original,doi:""},{
+   message:{items:[{DOI:"10.1234/proposal",title:["Predictive Clinical Decision-Making with AI"],
+      author:[{given:"Ana",family:"Silva"}],published:{"date-parts":[[2025]]}},
+     {DOI:"10.1234/unrelated",title:["An unrelated computational genomics book"]}]}
+ });
+ assert.equal(candidates.auto_assigned,false);
+ assert.equal(candidates.review_required,true);
+ assert.equal(candidates.original.doi,"");
+ assert.equal(candidates.candidates.length,2);
+ assert.equal(candidates.candidates[0].doi,"10.1234/proposal");
+ assert.equal(candidates.candidates[0].identity,"UNVERIFIED_CANDIDATE_DO_NOT_AUTO_ASSIGN");
+ assert.ok(candidates.candidates[0].title_similarity>candidates.candidates[1].title_similarity);
+ assert.throws(()=>x.candidateReview({...original,doi:""},{message:{items:null}}),/inválida/);
+
+console.log("PASS: DOI identity/author/year conflict guards, provenance, registry parsing, budgets and exports.");
 })();
 report.catch(error=>{console.error(error);process.exitCode=1;});
