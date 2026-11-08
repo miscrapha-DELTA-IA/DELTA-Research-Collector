@@ -25,10 +25,13 @@ jobs:
           node --check content.js
           node --check review-matrix.js
           node --check background.js
+          node --check download-offscreen.js
       - name: Run offline unit tests
         run: |
           node tests/test-core.cjs
           node tests/test-background.cjs
+          node tests/test-downloads.cjs
+          node tests/test-download-offscreen.cjs
           node tests/test-context.cjs
           node tests/test-xref.cjs
           node tests/test-capes.cjs
