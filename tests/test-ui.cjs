@@ -49,3 +49,8 @@ assert.match(script,/await verifyAcrossSources\(batch,true\)/,"Continuation must
 assert.match(script,/function exportNoDoiReview\(/,"DOI candidate review must be separate and user-triggered");
 assert.match(script,/UNVERIFIED_CANDIDATE_DO_NOT_AUTO_ASSIGN|candidateReview\(/,"Candidates must not be assigned automatically");
 assert.match(script,/DELTA_biblioteca_xref_/,"Continuations must export an audited bibliographic CSV");
+
+assert.match(script,/generator:"DELTA Research Collector CAPES scoped diagnostic "\+chrome\.runtime\.getManifest\(\)\.version/,"Diagnostic generator must use actual installed version");
+assert.match(script,/visible_page_range:parsed\.visibleRange/,"Diagnostic must expose rendered page range");
+assert.match(script,/rendered_page_matches_url:/,"Diagnostic must flag URL/DOM mismatch");
+assert.doesNotMatch(script,/CAPES scoped diagnostic 0\.5\.9/,"Diagnostic must not contain stale hard-coded versions");
