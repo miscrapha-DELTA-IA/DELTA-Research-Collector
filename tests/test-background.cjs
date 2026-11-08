@@ -50,3 +50,8 @@ const vm=require('node:vm');
  console.log("PASS: CAPES per-tab session store, resume, clearing and origin/expiry guards.");
 
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+const allowlist=fs.readFileSync(__dirname+"/../background.js","utf8");
+assert.match(allowlist,/api\.datacite\.org/, "DataCite DOI API must be explicitly allowlisted");
+assert.match(allowlist,/api\.crossref\.org/, "Crossref DOI API must be explicitly allowlisted");
+assert.match(allowlist,/\x27xref-engine\.js\x27/, "Dynamic injection must load XRef engine");
